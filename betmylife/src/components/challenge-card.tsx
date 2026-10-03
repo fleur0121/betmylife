@@ -14,6 +14,7 @@ import { SymbolView } from "expo-symbols";
 import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./localized-text";
 import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
+import { BrandAsset } from "./brand-asset";
 function PredictionButton({
   choice,
   odds,
@@ -101,7 +102,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         style={({ pressed }) => [styles.author, pressed && s.pressed]}
       >
         <Avatar emoji={challenge.avatar} color={challenge.color} size={42} />
-        <View style={s.flex}>
+        <View style={styles.authorIdentity}>
           <View style={styles.nameRow}>
             <Text translate={false} style={s.bold}>
               {challenge.user}
@@ -116,9 +117,26 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           </View>
           <Text style={s.caption}>◷ {challenge.deadline}</Text>
         </View>
-        <Pill tone={challenge.category === "Fitness" ? "green" : "purple"}>
-          {challenge.category}
-        </Pill>
+        <View style={styles.authorTags}>
+        <View style={[styles.categoryTag, { backgroundColor: challenge.category === "Fitness" ? c.mint : challenge.category === "Study" ? c.sky : c.lavender }]}> 
+          <BrandAsset
+            name={challenge.category === "Fitness" ? "iconFitness" : challenge.category === "Study" ? "iconStudy" : "iconLifestyle"}
+            style={styles.categoryIcon}
+          />
+          <Text style={styles.categoryName}>{challenge.category}</Text>
+        </View>
+        {challenge.proofPlan && (
+          <Pill tone="neutral">
+            {challenge.proofPlan.requirements[0]?.method === "photo"
+              ? "Photo proof"
+              : challenge.proofPlan.requirements[0]?.method === "timer"
+                ? "Timer proof"
+                : challenge.proofPlan.requirements[0]?.method === "self_report"
+                  ? "Self report"
+                  : "✦ Proof Plan"}
+          </Pill>
+        )}
+        </View>
       </Pressable>
       <Text translate={false} style={styles.title}>
         {getChallengeTitle(challenge, locale)}
@@ -196,7 +214,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: c.border,
   },
-  author: { flexDirection: "row", gap: 10, alignItems: "center" },
+  author: { flexDirection: "row", gap: 10, alignItems: "flex-start", flexWrap: "wrap" },
+  authorIdentity: { flex: 1, minWidth: 150, paddingTop: 2 },
+  authorTags: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", gap: 5, maxWidth: "48%" },
+  categoryTag: { minHeight: 32, paddingHorizontal: 6, flexDirection: "row", gap: 3, alignItems: "center", borderRadius: 18 },
+  categoryIcon: { width: 25, height: 25 },
+  categoryName: { fontSize: 9, fontWeight: "800", color: c.text },
   nameRow: {
     flexDirection: "row",
     gap: 6,
@@ -219,12 +242,13 @@ const styles = StyleSheet.create({
   },
   percent: { fontSize: 23, fontWeight: "800", color: c.primaryDark },
   voteLabel: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+    flexDirection: "column",
+    justifyContent: "center",
     alignItems: "center",
-    gap: 8,
+    gap: 4,
+    minHeight: 42,
   },
-  question: { fontSize: 13, fontWeight: "700", color: c.text },
+  question: { fontSize: 14, fontWeight: "800", color: c.text, textAlign: "center" },
   predict: {
     flex: 1,
     minHeight: 46,
@@ -234,9 +258,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     gap: 4,
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
   },
   choice: { fontSize: 13, fontWeight: "800" },
   odds: { fontSize: 12, fontWeight: "600" },

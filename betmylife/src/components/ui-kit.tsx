@@ -16,6 +16,7 @@ import {
 import { Text } from '@/components/localized-text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { palette as c, radius, space, type } from '@/constants/design';
+import { BrandAsset, type BrandAssetName } from '@/components/brand-asset';
 export function Screen({
   children,
   title = 'Predict My Life',
@@ -74,6 +75,17 @@ export function Avatar({
   framed?: boolean;
   frameColor?: string;
 }) {
+  const avatarMoods: BrandAssetName[] = [
+    'mascotCheerful',
+    'mascotSupportive',
+    'mascotCurious',
+    'mascotCelebrating',
+    'mascotReading',
+    'mascotActive',
+    'mascotFocused',
+    'mascotCheering',
+  ];
+  const moodIndex = [...emoji].reduce((sum, character) => sum + character.codePointAt(0)!, 0) % avatarMoods.length;
   return (
     <View
       style={{
@@ -87,7 +99,7 @@ export function Avatar({
         borderColor: frameColor,
       }}
     >
-      <Text style={{ fontSize: size * 0.49 }}>{emoji}</Text>
+      <BrandAsset name={avatarMoods[moodIndex]} style={{ width: size * 1.15, height: size * 1.15 }} />
     </View>
   );
 }

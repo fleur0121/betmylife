@@ -6,20 +6,25 @@
 import { Children } from 'react';
 import { Text as NativeText, type TextProps } from 'react-native';
 import { useLanguage } from '@/i18n/language';
+import { translate as catalogTranslate } from '@/i18n/catalog';
 export function Text({
   children,
   translate = true,
   ...props
 }: TextProps & { translate?: boolean }) {
-  const { t } = useLanguage();
+  const { locale } = useLanguage();
   const parts = Children.toArray(children);
   const simple = parts.every(
     (part) => typeof part === 'string' || typeof part === 'number',
   );
+  const source = simple ? parts.join('') : '';
+  const catalogValue = catalogTranslate(source, locale);
   const content = !translate
     ? children
     : simple
-      ? t(parts.join(''))
-      : parts.map((part) => (typeof part === 'string' ? t(part) : part));
+      ? catalogValue
+      : parts.map((part) =>
+          typeof part === 'string' ? catalogTranslate(part, locale) : part,
+        );
   return <NativeText {...props}>{content}</NativeText>;
 }

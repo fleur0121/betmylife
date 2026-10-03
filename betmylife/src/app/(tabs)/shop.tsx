@@ -20,12 +20,17 @@ import { RewardCard } from '@/components/reward-card';
 import { rewards } from '@/mock/data';
 import { useAppState } from '@/state/app-state';
 import { palette as c } from '@/constants/design';
+import { BrandAsset } from '@/components/brand-asset';
 export default function Shop() {
   const { state, dispatch } = useAppState();
-  const [filter, setFilter] = useState('All rewards');
+  const [filter, setFilter] = useState('All');
   const [message, setMessage] = useState('');
   const items = rewards.filter(
-    (item) => filter === 'All rewards' || state.owned.includes(item.id),
+    (item) =>
+      filter === 'All' ||
+      (filter === 'Frames' && item.slot === 'Frame') ||
+      (filter === 'Titles' && item.slot === 'Title') ||
+      (filter === 'Stickers' && item.name.endsWith('Sticker')),
   );
   return (
     <Screen title="Shop">
@@ -45,14 +50,14 @@ export default function Shop() {
             ✦ {state.wallet.toLocaleString()}{' '}
             <Text style={{ fontSize: 17 }}>PT</Text>
           </Text>
-          <Text style={{ fontSize: 38 }}>🎁</Text>
+          <BrandAsset name="iconShop" style={{ width: 54, height: 54 }} />
         </View>
         <Text style={{ color: '#E6DAFF', fontSize: 12 }}>
           Earn by showing up. Spend on standing out.
         </Text>
       </Card>
       <Segments
-        options={['All rewards', 'Owned']}
+        options={['All', 'Frames', 'Titles', 'Stickers']}
         value={filter}
         onChange={setFilter}
       />
@@ -63,9 +68,7 @@ export default function Shop() {
       )}
       <SectionHeader
         title={
-          filter === 'Owned'
-            ? 'Your collection'
-            : 'Made for your main character era'
+          filter === 'All' ? 'Pick your next favorite' : `${filter} to make it yours`
         }
       />
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>

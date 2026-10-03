@@ -17,6 +17,7 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { BrandAsset } from "@/components/brand-asset";
 import { useLanguage } from "@/i18n/language";
 import { friendDirectory, myFriendId, type Friend } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
@@ -181,15 +182,19 @@ export default function Friends() {
           ))}
         </Card>
       ) : (
-        <Text style={s.muted}>
-          No friends yet. Find your first friend above.
-        </Text>
+        <Card style={styles.emptyFriends}>
+          <BrandAsset name="stateNoFriends" style={styles.emptyFriendsArt} label="No friends yet" />
+          <Text style={s.sectionTitle}>Your circle is just getting started</Text>
+          <Text style={s.muted}>Find a friend by ID or share your QR code.</Text>
+        </Card>
       )}
       <Text style={s.caption}>Demo only · Friends reset on reload.</Text>
     </Screen>
   );
 }
 const styles = StyleSheet.create({
+  emptyFriends: { alignItems: "center", backgroundColor: c.lavenderLight },
+  emptyFriendsArt: { width: 175, height: 128 },
   input: {
     minHeight: 48,
     padding: 14,

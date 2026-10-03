@@ -7,6 +7,82 @@
 export type Category = "Study" | "Fitness" | "Lifestyle";
 export type Prediction = "yes" | "no";
 export type Visibility = "public" | "friends";
+export type ProofMethod =
+  | "photo"
+  | "live_camera"
+  | "before_after"
+  | "timer"
+  | "focus_session"
+  | "ai_quiz"
+  | "text_artifact"
+  | "word_count"
+  | "friend_witness"
+  | "checkpoint"
+  | "location"
+  | "duration"
+  | "screen_time"
+  | "health_steps"
+  | "health_sleep"
+  | "health_workout"
+  | "distance"
+  | "self_report";
+export type VerificationLogic = "all" | "any";
+export type VerificationStrength = "basic" | "medium" | "strong";
+export type ProofRequirement = {
+  id: string;
+  method: ProofMethod;
+  label: string;
+  instructions: string;
+  required: boolean;
+  config: {
+    minimumPhotos?: number;
+    minimumMinutes?: number;
+    maximumMinutes?: number;
+    latitude?: number;
+    longitude?: number;
+    radiusMeters?: number;
+    appName?: string;
+    appIdentifier?: string;
+    minimumSteps?: number;
+    minimumSleepMinutes?: number;
+    minimumDistanceMeters?: number;
+    minimumWordCount?: number;
+    quizQuestionCount?: number;
+    quizPassingScore?: number;
+    checkpointCount?: number;
+    witnessCount?: number;
+    requireLiveCapture?: boolean;
+    workoutType?: string;
+  };
+};
+export type VerificationPlan = {
+  category: string;
+  title: string;
+  summary: string;
+  logic: VerificationLogic;
+  requirements: ProofRequirement[];
+  explanation: string;
+  verificationStrength: VerificationStrength;
+  fallbackAllowed: boolean;
+  funLabel?: string;
+};
+export type AppCapabilities = {
+  photo: boolean;
+  liveCamera: boolean;
+  beforeAfter: boolean;
+  timer: boolean;
+  focusSession: boolean;
+  aiQuiz: boolean;
+  textArtifact: boolean;
+  wordCount: boolean;
+  friendWitness: boolean;
+  checkpoint: boolean;
+  location: boolean;
+  screenTime: boolean;
+  healthSteps: boolean;
+  healthSleep: boolean;
+  healthWorkout: boolean;
+};
 export type Challenge = {
   id: string;
   user: string;
@@ -23,6 +99,7 @@ export type Challenge = {
   difficulty: number;
   visibility: Visibility;
   titleJa?: string;
+  proofPlan?: VerificationPlan;
 };
 export const currentUser = {
   name: "Fuka",
@@ -33,24 +110,43 @@ export const currentUser = {
   streak: 5,
   completed: 12,
 };
-export const initialWallet = 1250;
+export const initialWallet = 420;
 export const challenges: Challenge[] = [
   {
-    id: "wake",
+    id: "read-today",
     user: "Fuka",
     avatar: "🌷",
     color: "#EEE7FC",
-    title: "Wake up before 7 AM tomorrow",
-    category: "Lifestyle",
-    deadline: "8h 32m remaining",
-    confidence: 80,
+    title: "Read for 20 Minutes",
+    category: "Study",
+    deadline: "Today · 9:00 PM",
+    confidence: 73,
     probability: 68,
     yesOdds: "1.47",
     noOdds: "3.13",
     friends: 12,
-    difficulty: 3,
+    difficulty: 2,
     visibility: "public",
-    titleJa: "明日は朝7時までに起きる",
+    titleJa: "20分間読書する",
+    proofPlan: {
+      category: "study",
+      title: "THE READING SPRINT",
+      summary: "Read for 20 focused minutes.",
+      logic: "all",
+      requirements: [
+        {
+          id: "reading-timer",
+          method: "timer",
+          label: "Reading Timer",
+          instructions: "Read for 20 focused minutes.",
+          required: true,
+          config: { minimumMinutes: 20 },
+        },
+      ],
+      explanation: "A timer is a simple way to keep this small reading promise.",
+      verificationStrength: "medium",
+      fallbackAllowed: true,
+    },
   },
   {
     id: "gym",
@@ -68,6 +164,25 @@ export const challenges: Challenge[] = [
     difficulty: 4,
     visibility: "public",
     titleJa: "今週3回ジムに行く",
+    proofPlan: {
+      category: "fitness",
+      title: "PROVE THE PROGRESS",
+      summary: "Show progress from one of your completed gym sessions.",
+      logic: "all",
+      requirements: [
+        {
+          id: "gym-photo",
+          method: "photo",
+          label: "Gym Progress Photo",
+          instructions: "Upload a photo from one of your completed gym sessions.",
+          required: true,
+          config: { minimumPhotos: 1 },
+        },
+      ],
+      explanation: "A photo can show visible progress without pretending to use location tracking.",
+      verificationStrength: "medium",
+      fallbackAllowed: true,
+    },
   },
   {
     id: "study",
@@ -85,6 +200,25 @@ export const challenges: Challenge[] = [
     difficulty: 3,
     visibility: "public",
     titleJa: "夕食前に課題を終わらせる",
+    proofPlan: {
+      category: "study",
+      title: "SHOW THE FINISH",
+      summary: "Show the finished assignment before dinner.",
+      logic: "all",
+      requirements: [
+        {
+          id: "assignment-photo",
+          method: "photo",
+          label: "Finished Assignment",
+          instructions: "Upload a photo of your finished assignment before dinner.",
+          required: true,
+          config: { minimumPhotos: 1 },
+        },
+      ],
+      explanation: "A photo is a useful way to show a finished piece of work.",
+      verificationStrength: "medium",
+      fallbackAllowed: true,
+    },
   },
 ];
 export const users = [
@@ -142,78 +276,86 @@ export type Reward = {
   id: string;
   name: string;
   price: number;
-  emoji: string;
+  asset: import("@/components/brand-asset").BrandAssetName;
   color: string;
   slot: CosmeticSlot;
 };
 export const rewards: Reward[] = [
   {
-    id: "aura",
-    name: "Purple Aura Frame",
-    price: 300,
-    emoji: "🌷",
-    color: "#EEE7FC",
+    id: "sunny-frame",
+    name: "Sunny Vibes Frame",
+    price: 200,
+    asset: "frameSunny",
+    color: "#FFF3CE",
     slot: "Frame",
   },
   {
-    id: "crown",
-    name: "Gold Crown",
-    price: 500,
-    emoji: "👑",
-    color: "#FFF3D8",
+    id: "galaxy-frame",
+    name: "Galaxy Frame",
+    price: 300,
+    asset: "frameGalaxy",
+    color: "#E9E5FA",
+    slot: "Frame",
+  },
+  {
+    id: "focused-title",
+    name: "Focused Title",
+    price: 150,
+    asset: "stickerFocused",
+    color: "#DDF8EC",
+    slot: "Title",
+  },
+  {
+    id: "big-dreamer-title",
+    name: "Big Dreamer Title",
+    price: 150,
+    asset: "stickerBigDreamer",
+    color: "#F1E5FF",
+    slot: "Title",
+  },
+  {
+    id: "plant-buddy",
+    name: "Plant Buddy Sticker",
+    price: 100,
+    asset: "iconLifestyle",
+    color: "#DDF8EC",
     slot: "Badge",
   },
   {
-    id: "fire",
-    name: "Fire Frame",
-    price: 700,
-    emoji: "🔥",
-    color: "#FFE8DA",
-    slot: "Frame",
-  },
-  {
-    id: "galaxy",
-    name: "Galaxy Background",
-    price: 800,
-    emoji: "🪐",
+    id: "study-star",
+    name: "Study Star Sticker",
+    price: 100,
+    asset: "badgeKnowledgeBuilder",
     color: "#E9E5FA",
-    slot: "Background",
-  },
-  {
-    id: "title",
-    name: "Custom Title",
-    price: 1000,
-    emoji: "✨",
-    color: "#E8F5ED",
-    slot: "Title",
+    slot: "Badge",
   },
 ];
 export const initialCosmetics: Record<CosmeticSlot, string> = {
-  Frame: "Lavender Bloom",
+  Frame: "Purple Aura Frame",
   Badge: "Rising Star",
   Background: "Soft Lavender",
   Title: "AI Slayer",
 };
 export const categoryStats = [
-  { name: "Wake Up", emoji: "☀️", value: 45 },
-  { name: "Gym", emoji: "💪", value: 80 },
-  { name: "Study", emoji: "📚", value: 65 },
-  { name: "Cooking", emoji: "🍳", value: 35 },
-];
+  { name: "Study", asset: "iconStudy", value: 65 },
+  { name: "Fitness", asset: "iconFitness", value: 80 },
+  { name: "Lifestyle", asset: "iconLifestyle", value: 58 },
+  { name: "Wake Up", asset: "iconStreak", value: 45 },
+ ] as const;
 export const insights = [
   {
-    emoji: "💪",
+    asset: "iconFitness",
     title: "Fitness is your superpower",
     text: "Your fitness challenges have the highest completion rate.",
   },
   {
-    emoji: "🌱",
+    asset: "stickerBrighterDays",
     title: "Start the week strong",
     text: "You are more successful earlier in the week. Save a big goal for Monday.",
   },
   {
-    emoji: "🔮",
+    asset: "iconAiInsight",
     title: "A little optimistic? We love it.",
     text: "Your confidence is usually slightly higher than your actual completion rate.",
   },
-];
+ ] as const;

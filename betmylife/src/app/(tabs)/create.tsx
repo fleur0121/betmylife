@@ -5,7 +5,6 @@
  */
 import { Text } from "@/components/localized-text";
 import {
-    Avatar,
     Button,
     Card,
     PageHeading,
@@ -14,8 +13,12 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { ProofPlanCard } from "@/components/proof/proof-plan-card";
+import { BrandAsset } from "@/components/brand-asset";
 import { useLanguage } from "@/i18n/language";
-import type { Category, Visibility } from "@/mock/data";
+import type { Category, VerificationPlan, Visibility } from "@/mock/data";
+import { demoCapabilities, getFallbackProofPlan } from "@/utils/fallback-proof-plan";
+import { generateProofPlan } from "@/services/proof-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -31,20 +34,50 @@ export default function Create() {
   const { locale, t } = useLanguage();
   const { dispatch } = useAppState();
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<Category>("Lifestyle");
+  const [category, setCategory] = useState<Category>("Study");
   const [difficulty, setDifficulty] = useState(3);
-  const [confidence, setConfidence] = useState(80);
+  const [confidence, setConfidence] = useState(73);
+  const [confidenceWidth, setConfidenceWidth] = useState(1);
   const [deadline, setDeadline] = useState("Tomorrow");
   const [error, setError] = useState("");
   const [created, setCreated] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>("public");
-  function createChallenge() {
+  const [proofPlan, setProofPlan] = useState<VerificationPlan | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
+  const [proofError, setProofError] = useState("");
+
+  async function chooseProof() {
     if (title.trim().length < 5) {
       setError(
         "Give your challenge a little more detail (at least 5 characters).",
       );
       return;
     }
+    setProofLoading(true);
+    setProofError("");
+    try {
+      const input = {
+          title: title.trim(),
+          category,
+          difficulty,
+          confidence,
+          deadline,
+        capabilities: demoCapabilities,
+      };
+      try {
+        setProofPlan(await generateProofPlan(input));
+      } catch {
+        setProofPlan(getFallbackProofPlan(input));
+      }
+    } catch {
+      setProofError("We could not choose a proof yet. Please try again.");
+    } finally {
+      setProofLoading(false);
+    }
+  }
+
+  function createChallenge() {
+    if (!proofPlan) return;
     dispatch({
       type: "create",
       challenge: {
@@ -63,11 +96,13 @@ export default function Create() {
         friends: 0,
         visibility,
         titleJa: locale === "ja" ? title.trim() : undefined,
+        proofPlan,
       },
     });
     setCreated(true);
     setTitle("");
     setError("");
+    setProofPlan(null);
   }
   return (
     <KeyboardAvoidingView
@@ -81,7 +116,7 @@ export default function Create() {
         />
         {created ? (
           <Card>
-            <Text style={{ fontSize: 45, textAlign: "center" }}>🎉</Text>
+            <BrandAsset name="stateChallengeSuccess" style={styles.successArt} label="Challenge success" />
             <Text style={[s.sectionTitle, { textAlign: "center" }]}>
               You’re on the board!
             </Text>
@@ -106,7 +141,7 @@ export default function Create() {
           <>
             <Card>
               <View style={s.row}>
-                <Avatar emoji="🌷" size={40} />
+                <View style={styles.authorAvatar}><BrandAsset name="mascotCheerful" style={styles.authorMascot} /></View>
                 <View>
                   <Text translate={false} style={s.bold}>
                     Fuka
@@ -116,12 +151,13 @@ export default function Create() {
               </View>
               <TextInput
                 accessibilityLabel={t("Challenge title")}
-                placeholder={t("e.g. Wake up before 7 AM tomorrow")}
+                placeholder={t("e.g. Read for 20 minutes")}
                 placeholderTextColor={c.muted}
                 value={title}
                 onChangeText={(text) => {
                   setTitle(text);
                   setError("");
+                  setProofPlan(null);
                 }}
                 maxLength={100}
                 multiline
@@ -136,11 +172,24 @@ export default function Create() {
                 </Text>
               )}
               <Text style={s.sectionTitle}>Pick a category</Text>
-              <Segments
-                options={["Study", "Fitness", "Lifestyle"] as const}
-                value={category}
-                onChange={setCategory}
-              />
+              <View style={styles.categoryChoices}>
+                {([
+                  ["Study", "iconStudy", c.sky],
+                  ["Fitness", "iconFitness", c.peach],
+                  ["Lifestyle", "iconLifestyle", c.mint],
+                ] as const).map(([name, asset, color]) => (
+                  <Pressable
+                    key={name}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: category === name }}
+                    onPress={() => setCategory(name)}
+                    style={({ pressed }) => [styles.categoryCard, { backgroundColor: color }, category === name && styles.categorySelected, pressed && s.pressed]}
+                  >
+                    <BrandAsset name={asset} style={styles.categoryArt} />
+                    <Text style={[styles.categoryLabel, category === name && styles.categoryLabelActive]}>{name}</Text>
+                  </Pressable>
+                ))}
+              </View>
               <Text style={s.sectionTitle}>Who can see this?</Text>
               <Segments
                 options={["Public", "Friends only"] as const}
@@ -192,27 +241,32 @@ export default function Create() {
             </Card>
             <Card>
               <Text style={s.sectionTitle}>How confident are you?</Text>
-              <View style={styles.confidence}>
-                <Button
-                  label="−"
-                  secondary
-                  disabled={confidence === 0}
-                  onPress={() =>
-                    setConfidence((value) => Math.max(0, value - 10))
-                  }
-                />
-                <Text accessibilityLiveRegion="polite" style={styles.percent}>
-                  {confidence}%
-                </Text>
-                <Button
-                  label="+"
-                  secondary
-                  disabled={confidence === 100}
-                  onPress={() =>
-                    setConfidence((value) => Math.min(100, value + 10))
-                  }
-                />
-              </View>
+                <View style={styles.confidenceHeader}>
+                  <Text style={s.caption}>0%</Text>
+                  <Text accessibilityLiveRegion="polite" style={styles.percent}>
+                    {confidence}%
+                  </Text>
+                  <Text style={s.caption}>100%</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="adjustable"
+                  accessibilityLabel={t("Confidence")}
+                  accessibilityValue={{ min: 0, max: 100, now: confidence }}
+                  onLayout={(event) => setConfidenceWidth(event.nativeEvent.layout.width)}
+                  onStartShouldSetResponder={() => true}
+                  onResponderMove={(event) => {
+                    const next = Math.round((event.nativeEvent.locationX / confidenceWidth) * 100);
+                    setConfidence(Math.max(0, Math.min(100, next)));
+                  }}
+                  onPress={(event) => {
+                    const next = Math.round((event.nativeEvent.locationX / confidenceWidth) * 100);
+                    setConfidence(Math.max(0, Math.min(100, next)));
+                  }}
+                  style={({ pressed }) => [styles.confidenceTrack, pressed && s.pressed]}
+                >
+                  <View style={[styles.confidenceFill, { width: `${confidence}%` }]} />
+                  <View style={[styles.confidenceThumb, { left: `${confidence}%` }]} />
+                </Pressable>
               <Text style={[s.caption, { textAlign: "center" }]}>
                 Trust your gut. There’s no wrong answer.
               </Text>
@@ -229,7 +283,33 @@ export default function Create() {
                 · local time
               </Text>
             </Card>
-            <Button label="Create Challenge  ✦" onPress={createChallenge} />
+            {proofLoading && (
+              <Card style={styles.loadingCard}>
+                <BrandAsset name="statePredicting" style={styles.loadingArt} label="Choosing your proof plan" />
+                <View style={s.flex}>
+                  <Text style={s.sectionTitle}>Choosing your best proof…</Text>
+                  <Text style={s.muted}>Matching your goal to a simple way to verify it.</Text>
+                </View>
+              </Card>
+            )}
+            {!!proofError && (
+              <Text accessibilityRole="alert" style={{ color: c.red }}>
+                {proofError}
+              </Text>
+            )}
+            {proofPlan && !proofLoading && (
+              <ProofPlanCard
+                plan={proofPlan}
+                onConfirm={createChallenge}
+                onChangePlan={setProofPlan}
+              />
+            )}
+            {!proofPlan && !proofLoading && (
+              <Button
+                label="Choose My Proof  ✦"
+                onPress={() => void chooseProof()}
+              />
+            )}
             <Text style={[s.caption, { textAlign: "center" }]}>
               Visible to your friends · Demo data resets on reload
             </Text>
@@ -240,6 +320,17 @@ export default function Create() {
   );
 }
 const styles = StyleSheet.create({
+  successArt: { alignSelf: "center", width: 152, height: 118 },
+  loadingCard: { minHeight: 96, flexDirection: "row", alignItems: "center", gap: 12 },
+  loadingArt: { width: 72, height: 64 },
+  authorAvatar: { width: 42, height: 42, borderRadius: 24, overflow: "hidden", backgroundColor: c.lavender, alignItems: "center", justifyContent: "center" },
+  authorMascot: { width: 44, height: 44 },
+  categoryChoices: { flexDirection: "row", gap: 8 },
+  categoryCard: { flex: 1, minHeight: 88, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
+  categorySelected: { borderColor: c.primary },
+  categoryArt: { width: 44, height: 44 },
+  categoryLabel: { marginTop: -2, color: c.text, fontSize: 10, fontWeight: "800" },
+  categoryLabelActive: { color: c.primaryDark },
   input: {
     minHeight: 132,
     backgroundColor: c.background,
@@ -260,10 +351,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  confidence: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-  },
+  confidenceHeader: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  confidenceTrack: { height: 32, justifyContent: "center", position: "relative" },
+  confidenceFill: { height: 9, borderRadius: 8, backgroundColor: c.primary },
+  confidenceThumb: { position: "absolute", top: 8, width: 16, height: 16, marginLeft: -8, borderRadius: 10, backgroundColor: c.primaryDark, borderWidth: 3, borderColor: c.card },
   percent: { fontSize: 40, fontWeight: "800", color: c.primary },
 });

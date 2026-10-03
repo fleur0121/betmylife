@@ -17,6 +17,7 @@ import {
 } from '@/components/ui-kit';
 import { categoryStats, insights } from '@/mock/data';
 import { palette as c } from '@/constants/design';
+import { BrandAsset } from '@/components/brand-asset';
 export default function HabitDNA() {
   const { t } = useLanguage();
   return (
@@ -26,15 +27,16 @@ export default function HabitDNA() {
         subtitle="Track your success rate and find your strengths."
       />
       <Card style={{ backgroundColor: c.lavenderLight }}>
-        <Text style={s.sectionTitle}>
-          You’re a work in progress. In the best way.
-        </Text>
-        <Text style={s.muted}>
-          A snapshot of your habits, built from your everyday challenges.
-        </Text>
+        <View style={styles.insightHero}>
+          <View style={s.flex}>
+            <Text style={s.sectionTitle}>You’re a work in progress. In the best way.</Text>
+            <Text style={[s.muted, { marginTop: 5 }]}>A snapshot of your everyday challenges.</Text>
+          </View>
+          <BrandAsset name="mascotCurious" style={styles.heroMascot} />
+        </View>
         <View style={s.row}>
           <StatCard value="12" label="Challenges completed" />
-          <StatCard value="80%" label="Best category · Gym" />
+          <StatCard value="80%" label="Best category · Fitness" />
         </View>
       </Card>
       <SectionHeader title="Where you shine" detail="SUCCESS RATE" />
@@ -42,14 +44,15 @@ export default function HabitDNA() {
         {categoryStats.map((item) => (
           <View key={item.name} style={{ gap: 12 }}>
             <View style={s.between}>
-              <Text style={s.bold}>
-                {item.emoji} {t(item.name)}
-              </Text>
+              <View style={styles.categoryName}>
+                <BrandAsset name={item.asset} style={styles.categoryIcon} />
+                <Text style={s.bold}>{t(item.name)}</Text>
+              </View>
               <Text style={[s.bold, { color: c.primary }]}>{item.value}%</Text>
             </View>
             <ProgressBar
               value={item.value}
-              color={item.name === 'Gym' ? c.green : c.primary}
+              color={item.name === 'Fitness' ? c.green : c.primary}
             />
           </View>
         ))}
@@ -58,7 +61,7 @@ export default function HabitDNA() {
       {insights.map((insight) => (
         <Card key={insight.title}>
           <View style={s.row}>
-            <Text style={{ fontSize: 27 }}>{insight.emoji}</Text>
+            <BrandAsset name={insight.asset} style={styles.insightArt} />
             <Text style={[s.sectionTitle, s.flex]}>{insight.title}</Text>
           </View>
           <Text style={s.muted}>{insight.text}</Text>
@@ -70,3 +73,10 @@ export default function HabitDNA() {
     </Screen>
   );
 }
+const styles = {
+  insightHero: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  heroMascot: { width: 91, height: 82 },
+  categoryName: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8 },
+  categoryIcon: { width: 48, height: 46 },
+  insightArt: { width: 48, height: 48 },
+};

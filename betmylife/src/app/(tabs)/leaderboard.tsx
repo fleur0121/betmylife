@@ -18,14 +18,15 @@ import { palette as c } from "@/constants/design";
 import { users } from "@/mock/data";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-const metrics = ["Weekly Points", "Accuracy", "Streak"] as const;
+import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
+const metrics = ["Weekly", "Prediction", "Streak"] as const;
 type Metric = (typeof metrics)[number];
 export default function Leaderboard() {
-  const [metric, setMetric] = useState<Metric>("Weekly Points");
+  const [metric, setMetric] = useState<Metric>("Weekly");
   const key =
-    metric === "Weekly Points"
+    metric === "Weekly"
       ? "points"
-      : metric === "Accuracy"
+      : metric === "Prediction"
         ? "accuracy"
         : "streak";
   const ranked = [...users].sort((a, b) => b[key] - a[key]);
@@ -34,7 +35,7 @@ export default function Leaderboard() {
   return (
     <Screen title="Leaderboard">
       <PageHeading
-        title="This week’s leaderboard"
+        title="Your circle, your climb"
         subtitle="Compare points, prediction accuracy, and streaks."
       />
       <Segments options={metrics} value={metric} onChange={setMetric} />
@@ -46,13 +47,14 @@ export default function Leaderboard() {
               key={user.name}
               style={[styles.podiumUser, index === 0 && { marginTop: 0 }]}
             >
-              {index === 0 && <Text style={styles.crown}>👑</Text>}
-              <Avatar
-                emoji={user.avatar}
-                color={user.color}
-                size={index === 0 ? 72 : 58}
-                framed={index === 0}
-              />
+              {index === 0 && <BrandAsset name="iconTrophy" style={styles.crown} label="Leaderboard leader" />}
+              <View style={styles.avatarStage}>
+                <Avatar emoji={user.avatar} color={user.color} size={index === 0 ? 63 : 52} />
+                <BrandAsset
+                  name={(["frameSunny", "framePurpleAura", "frameFire"] as BrandAssetName[])[index]}
+                  style={styles.avatarFrame}
+                />
+              </View>
               <Text translate={false} style={s.bold}>
                 {user.name}
               </Text>
@@ -117,7 +119,9 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   podiumUser: { flex: 1, alignItems: "center", gap: 10, marginTop: 30 },
-  crown: { fontSize: 26 },
+  crown: { width: 53, height: 46, marginBottom: -4 },
+  avatarStage: { width: 82, height: 82, alignItems: "center", justifyContent: "center" },
+  avatarFrame: { position: "absolute", width: 82, height: 82 },
   pedestal: {
     width: "100%",
     borderTopLeftRadius: 18,

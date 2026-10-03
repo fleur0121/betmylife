@@ -8,6 +8,7 @@ import { Text } from '@/components/localized-text';
 import { Button, s } from './ui-kit';
 import type { Reward } from '@/mock/data';
 import { palette as c } from '@/constants/design';
+import { BrandAsset } from '@/components/brand-asset';
 export function RewardCard({
   reward,
   owned,
@@ -22,18 +23,7 @@ export function RewardCard({
   return (
     <View style={styles.card}>
       <View style={[styles.preview, { backgroundColor: reward.color }]}>
-        {reward.slot === 'Frame' ? (
-          <View
-            style={[
-              styles.frame,
-              { borderColor: reward.id === 'fire' ? '#EAA06C' : c.primary },
-            ]}
-          >
-            <Text style={{ fontSize: 35 }}>{reward.emoji}</Text>
-          </View>
-        ) : (
-          <Text style={{ fontSize: 52 }}>{reward.emoji}</Text>
-        )}
+        <BrandAsset name={reward.asset} style={styles.previewArt} label={reward.name} />
         <Text style={styles.previewLabel}>{reward.slot.toUpperCase()}</Text>
       </View>
       <View style={styles.details}>
@@ -65,7 +55,7 @@ const styles = StyleSheet.create({
     maxWidth: '49%',
   },
   preview: {
-    height: 140,
+    height: 132,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
@@ -76,14 +66,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
     color: c.primaryDark,
   },
-  frame: {
-    width: 72,
-    height: 72,
-    borderRadius: 40,
-    borderWidth: 4,
-    backgroundColor: c.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  previewArt: { width: 102, height: 100 },
   details: { padding: 13, gap: 12 },
 });

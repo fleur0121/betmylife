@@ -23,16 +23,16 @@ const tabs = [
     icon: { ios: 'house', android: 'home', web: 'home' },
   },
   {
+    name: 'create',
+    href: '/create',
+    label: 'Create',
+    icon: { ios: 'plus.app', android: 'add_box', web: 'add_box' },
+  },
+  {
     name: 'leaderboard',
     href: '/leaderboard',
     label: 'Leaderboard',
     icon: { ios: 'trophy', android: 'trophy', web: 'trophy' },
-  },
-  {
-    name: 'create',
-    href: '/create',
-    label: 'Post',
-    icon: { ios: 'plus.app', android: 'add_box', web: 'add_box' },
   },
   {
     name: 'shop',
