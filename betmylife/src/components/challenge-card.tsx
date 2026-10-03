@@ -1,0 +1,260 @@
+/**
+ * タイムライン形式のチャレンジ投稿。アバター・投稿本文・AI確率・予想操作の順に読める構成。
+ * YES／NOは1タップで選択し、選択済み表示と人数を共有状態から更新する。
+ * 倍率はポイント用。背景色だけでなくチェックマークでも選択状態を伝える。
+ */
+import { palette as c } from "@/constants/design";
+import { useLanguage } from "@/i18n/language";
+import type { Challenge, Prediction } from "@/mock/data";
+import { friendDirectory } from "@/mock/friends";
+import { useAppState } from "@/state/app-state";
+import { getChallengeTitle, getJapaneseTitle } from "@/utils/challenge-text";
+import { router } from "expo-router";
+import { SymbolView } from "expo-symbols";
+import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Text } from "./localized-text";
+import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
+function PredictionButton({
+  choice,
+  odds,
+  selected,
+  onPress,
+}: {
+  choice: Prediction;
+  odds: string;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const { t } = useLanguage();
+  const yes = choice === "yes";
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t(`Predict ${choice}, ${odds} times points`)}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.predict,
+        {
+          backgroundColor: selected
+            ? yes
+              ? c.green
+              : c.red
+            : yes
+              ? c.mint
+              : c.pink,
+          borderColor: selected ? (yes ? c.green : c.red) : "transparent",
+        },
+        pressed && s.pressed,
+      ]}
+    >
+      <Text
+        style={[
+          styles.choice,
+          { color: selected ? c.card : yes ? c.green : c.red },
+        ]}
+      >
+        {selected ? "✓ " : ""}
+        {yes ? "YES" : "NO"}
+      </Text>
+      <Text
+        style={[
+          styles.odds,
+          { color: selected ? c.card : yes ? c.green : c.red },
+        ]}
+      >
+        {odds}×
+      </Text>
+    </Pressable>
+  );
+}
+export function ChallengeCard({ challenge }: { challenge: Challenge }) {
+  const { state, dispatch } = useAppState();
+  const { locale, t } = useLanguage();
+  const selected = state.predictions[challenge.id];
+  const author = friendDirectory.find(
+    (friend) => friend.name === challenge.user,
+  );
+  function removePost() {
+    if (Platform.OS === "web") {
+      if (globalThis.confirm(t("Delete this challenge?"))) {
+        dispatch({ type: "delete", id: challenge.id });
+      }
+      return;
+    }
+    Alert.alert(t("Delete post"), t("Delete this challenge?"), [
+      { text: t("Cancel"), style: "cancel" },
+      {
+        text: t("Delete"),
+        style: "destructive",
+        onPress: () => dispatch({ type: "delete", id: challenge.id }),
+      },
+    ]);
+  }
+  return (
+    <View style={styles.post}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${challenge.user}'s profile`}
+        onPress={() => author && router.push(`/user/${author.id}`)}
+        disabled={!author}
+        style={({ pressed }) => [styles.author, pressed && s.pressed]}
+      >
+        <Avatar emoji={challenge.avatar} color={challenge.color} size={42} />
+        <View style={s.flex}>
+          <View style={styles.nameRow}>
+            <Text translate={false} style={s.bold}>
+              {challenge.user}
+            </Text>
+            <Text
+              translate={false}
+              numberOfLines={1}
+              style={[s.caption, { flexShrink: 1 }]}
+            >
+              @{author?.id ?? challenge.user.toLowerCase()}
+            </Text>
+          </View>
+          <Text style={s.caption}>◷ {challenge.deadline}</Text>
+        </View>
+        <Pill tone={challenge.category === "Fitness" ? "green" : "purple"}>
+          {challenge.category}
+        </Pill>
+      </Pressable>
+      <Text translate={false} style={styles.title}>
+        {getChallengeTitle(challenge, locale)}
+      </Text>
+      {getJapaneseTitle(challenge) &&
+        getJapaneseTitle(challenge) !== challenge.title && (
+          <Text translate={false} style={styles.translation}>
+            {locale === "ja" ? challenge.title : getJapaneseTitle(challenge)}
+          </Text>
+        )}
+      <View style={styles.forecast}>
+        <View style={s.between}>
+          <Text style={styles.aiLabel}>✦ AI PREDICTION</Text>
+          <Text style={styles.percent}>{challenge.probability}%</Text>
+        </View>
+        <ProgressBar value={challenge.probability} />
+        <View style={s.between}>
+          <Text style={s.caption}>
+            Their confidence {challenge.confidence}%
+          </Text>
+          <Text style={s.caption}>Mock estimate</Text>
+        </View>
+      </View>
+      <View style={styles.voteLabel}>
+        <Text style={styles.question}>Will they make it?</Text>
+        <Text style={s.caption}>Point multiplier</Text>
+      </View>
+      <View style={s.row}>
+        {(["yes", "no"] as const).map((choice) => (
+          <PredictionButton
+            key={choice}
+            choice={choice}
+            odds={choice === "yes" ? challenge.yesOdds : challenge.noOdds}
+            selected={selected === choice}
+            onPress={() =>
+              dispatch({ type: "predict", id: challenge.id, choice })
+            }
+          />
+        ))}
+      </View>
+      <View style={styles.footer}>
+        <Text style={s.caption}>
+          👥 {challenge.friends + (selected ? 1 : 0)} friend predictions
+        </Text>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={[s.caption, { color: selected ? c.primary : c.muted }]}
+        >
+          {selected ? `You picked ${selected.toUpperCase()}` : "Tap to predict"}
+        </Text>
+        {challenge.user === "Fuka" && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("Delete post")}
+            onPress={removePost}
+            style={({ pressed }) => [styles.delete, pressed && s.pressed]}
+          >
+            <SymbolView
+              name={{ ios: "trash", android: "delete", web: "delete" }}
+              size={18}
+              tintColor={c.red}
+            />
+            <Text style={styles.deleteText}>{t("Delete")}</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  post: {
+    padding: 16,
+    gap: 12,
+    backgroundColor: c.card,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  author: { flexDirection: "row", gap: 10, alignItems: "center" },
+  nameRow: {
+    flexDirection: "row",
+    gap: 6,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  title: { fontSize: 19, lineHeight: 27, fontWeight: "600", color: c.text },
+  translation: { fontSize: 13, lineHeight: 19, color: c.muted },
+  forecast: {
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: c.lavenderLight,
+    gap: 8,
+  },
+  aiLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: c.primaryDark,
+  },
+  percent: { fontSize: 23, fontWeight: "800", color: c.primaryDark },
+  voteLabel: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  question: { fontSize: 13, fontWeight: "700", color: c.text },
+  predict: {
+    flex: 1,
+    minHeight: 46,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 4,
+    flexWrap: "wrap",
+  },
+  choice: { fontSize: 13, fontWeight: "800" },
+  odds: { fontSize: 12, fontWeight: "600" },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  delete: {
+    minWidth: 40,
+    minHeight: 40,
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    gap: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "flex-end",
+  },
+  deleteText: { color: c.red, fontSize: 12, fontWeight: "700" },
+});

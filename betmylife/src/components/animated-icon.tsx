@@ -1,3 +1,7 @@
+/**
+ * 既存スターターのモバイル用ロゴアニメーション。
+ * 背景やロゴの拡縮・回転と、スプラッシュ画面からの切り替え表示を提供する。現在のメイン画面では未使用。
+ */
 import { Image } from 'expo-image';
 import * as SplashScreen from 'expo-splash-screen';
 import { useState } from 'react';

@@ -1,3 +1,7 @@
+/**
+ * スターターの操作説明を1行にまとめる表示コンポーネント。
+ * 見出しとヒントを並べ、既存のテーマ付きUIで表示する。
+ */
 import type { ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 

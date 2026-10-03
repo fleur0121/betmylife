@@ -1,3 +1,7 @@
+/**
+ * スターター用のテーマ対応Text。
+ * 文字色、見出し、リンク、コードなどの表示種別を共通化する。
+ */
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { Fonts, ThemeColor } from '@/constants/theme';

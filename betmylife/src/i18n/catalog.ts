@@ -1,0 +1,313 @@
+/**
+ * 英語の表示文言と日本語訳を管理するデバッグ用辞書。
+ * 内部のカテゴリ名や状態キーは英語のまま保持し、表示時だけ翻訳する。
+ * ユーザー名・ID・入力したチャレンジ本文は翻訳しない。
+ */
+export const japanese: Record<string, string> = {
+  Back: "戻る",
+  "Add friends": "友達を追加",
+  Post: "投稿",
+  "Post a challenge": "チャレンジを投稿",
+  "All posts": "すべて",
+  Public: "全体公開",
+  Friends: "友達のみ",
+  "Friends only": "友達のみ",
+  "Who can see this?": "公開範囲",
+  "Anyone can discover this challenge.": "全ユーザーがこの投稿を見られます。",
+  "Only your friends can see this challenge.":
+    "友達だけがこの投稿を見られます。",
+  All: "すべて",
+  "What will you challenge today?": "今日は何にチャレンジする？",
+  "Share a goal. Let friends predict.":
+    "目標を投稿して、友達に予想してもらおう。",
+  "No predictions yet": "まだ予想がありません",
+  "No challenges here yet": "まだ投稿がありません",
+  "Choose YES or NO on a post to save your prediction here.":
+    "投稿で「達成する・しない」を選ぶと、ここに保存されます。",
+  "Try another category or invite a friend to join you.":
+    "別のカテゴリを見るか、友達を追加してみましょう。",
+  "Show all posts": "すべての投稿を見る",
+  "Delete post": "投稿を削除",
+  "Delete this challenge?": "この投稿を削除しますか？",
+  Cancel: "キャンセル",
+  Delete: "削除",
+  "Read QR from screenshot": "スクリーンショットからQRを読み取る",
+  "No QR code found in this image.":
+    "この画像からQRコードを見つけられませんでした。",
+  "Could not read this image. Try a clearer QR screenshot.":
+    "画像を読み取れませんでした。QRがはっきり写った画像をお試しください。",
+  "You’re all caught up": "すべての投稿を確認しました",
+  "Demo feed · Predictions can be changed anytime":
+    "デモフィード · 予想はいつでも変更できます",
+  "Will they make it?": "達成できると思う？",
+  "Point multiplier": "ポイント倍率",
+  "Tap to predict": "タップして予想",
+  Overview: "概要",
+  "My challenges": "自分の投稿",
+  "Habit DNA": "習慣分析",
+  "See your habits and success rates": "習慣と達成率をチェック",
+  "Profile style": "プロフィールのカスタマイズ",
+  "Browse rewards →": "リワードを探す →",
+  "New challenge": "チャレンジ作成",
+  "Share your next goal": "次の目標を投稿しよう",
+  "Set a goal, choose a deadline, and let friends predict.":
+    "目標と期限を決めて、友達に予想してもらおう。",
+  "Visible to your friends": "友達に公開",
+  "This week’s leaderboard": "今週のランキング",
+  "Compare points, prediction accuracy, and streaks.":
+    "ポイント・予想精度・連続日数で順位をチェック。",
+  "Rewards shop": "リワードショップ",
+  "Use points to personalize your profile.":
+    "ポイントでプロフィールを自分らしく。",
+  "Your habit insights": "あなたの習慣を知ろう",
+  "Track your success rate and find your strengths.":
+    "達成率を振り返って、得意なことを見つけよう。",
+
+  Home: "ホーム",
+  Create: "作成",
+  Leaderboard: "ランキング",
+  Shop: "ショップ",
+  Profile: "プロフィール",
+  "MAKE IT HAPPEN": "一歩を踏み出そう",
+  "A promise to yourself.": "自分との小さな約束。",
+  "Every great habit starts with one little challenge.":
+    "よい習慣は、小さなチャレンジから。",
+  "You’re on the board!": "チャレンジを投稿しました！",
+  "Your challenge is live in the mock feed. Let your friends believe in you.":
+    "チャレンジをフィードに追加しました。友達に応援してもらおう。",
+  "See my challenge →": "チャレンジを見る →",
+  "Create another": "もう一つ作成する",
+  "What’s your challenge?": "何にチャレンジする？",
+  "Challenge title": "チャレンジのタイトル",
+  "e.g. Wake up before 7 AM tomorrow": "例：明日は朝7時までに起きる",
+  "Pick a category": "カテゴリを選ぼう",
+  Study: "勉強",
+  Fitness: "運動",
+  Lifestyle: "生活",
+  "How big is the stretch?": "難易度はどのくらい？",
+  "Easy win": "気軽に挑戦",
+  "Big ambition": "大きな挑戦",
+  "How confident are you?": "達成できる自信は？",
+  "Trust your gut. There’s no wrong answer.":
+    "直感で大丈夫。正解はありません。",
+  "Set your finish line": "期限を決めよう",
+  Today: "今日",
+  Tomorrow: "明日",
+  "In 3 days": "3日後",
+  "Create Challenge ✦": "チャレンジを作成 ✦",
+  "Visible to your friends · Demo data resets on reload":
+    "友達に公開 · デモデータは再読み込みでリセット",
+  "Give your challenge a little more detail (at least 5 characters).":
+    "チャレンジの内容を5文字以上で入力してください。",
+  "Little goals. Big main character energy.":
+    "小さな目標で、自分らしい毎日を。",
+  "Open your profile": "プロフィールを開く",
+  "YOUR NEXT CHAPTER STARTS TODAY": "今日から始まる、新しい自分",
+  "Small steps. Big possibilities.": "小さな一歩。\n大きな可能性。",
+  "Cheer on your friends. Trust your intuition.":
+    "友達を応援して、直感を信じよう。",
+  "Make a little promise +": "小さな約束をつくる +",
+  "5 days of showing up": "5日連続でがんばっています",
+  "Keep your streak alive. You’ve got this.": "今日も続けよう。きっとできる。",
+  "5 DAY": "5日連続",
+  "The daily forecast": "みんなのチャレンジ",
+  "FRIENDS & YOU": "友達とあなた",
+  "For you": "おすすめ",
+  "My picks": "自分の予想",
+  "Your intuition starts here ✨": "最初の予想をしてみよう ✨",
+  "Pick YES or NO on a challenge and find it here.":
+    "チャレンジで「達成する・しない」を選ぶと、ここに表示されます。",
+  "A little belief goes a long way. ✦": "小さな応援が、大きな力になる。✦",
+  "A LITTLE FRIENDLY COMPETITION": "友達と一緒に、少しずつ",
+  "Good company. Great goals.": "仲間と目指す、その先へ。",
+  "Show up for yourself. Rise together.":
+    "自分のために続けよう。仲間と高め合おう。",
+  "Weekly Points": "週間ポイント",
+  Accuracy: "予想精度",
+  Streak: "連続日数",
+  "Every little effort counts. Your next challenge could move you up.":
+    "小さな努力が順位につながる。次のチャレンジへ進もう。",
+  "Your circle": "あなたの仲間",
+  "THIS WEEK · DEMO": "今週 · デモ",
+  "Weekly points celebrate progress. Shop points are yours to spend.":
+    "週間ポイントは成果の記録。ショップの残高とは別です。",
+  "YOUR LITTLE CORNER": "あなたのスペース",
+  "Main character energy.": "自分らしさを、もっと。",
+  "Making little promises. Keeping big dreams.":
+    "小さな約束を重ねて、大きな夢へ。",
+  "earned this week": "今週の獲得ポイント",
+  Completed: "達成した目標",
+  "Meet your Habit DNA": "あなたのHabit DNA",
+  "Your patterns. Your potential.": "習慣を知って、可能性を広げよう。",
+  "Discover what makes you, you. A little insight for your next big step.":
+    "自分らしさを発見しよう。次の一歩につながるヒントをお届け。",
+  "Styled by you": "自分らしくカスタマイズ",
+  EQUIPPED: "装備中",
+  "Your reward collection": "持っているリワード",
+  Equip: "装備する",
+  Equipped: "装備中",
+  Frame: "フレーム",
+  Badge: "バッジ",
+  Background: "背景",
+  Title: "称号",
+  FRAME: "フレーム",
+  BADGE: "バッジ",
+  BACKGROUND: "背景",
+  TITLE: "称号",
+  "Find your next favorite in the shop →": "ショップでお気に入りを探す →",
+  "Demo profile · Your progress starts with showing up.":
+    "デモプロフィール · 毎日の一歩が成長につながる",
+  "A LITTLE MORE YOU": "もっと、あなたらしく",
+  "The good stuff.": "がんばった自分にご褒美。",
+  "Turn your everyday wins into a little self-expression.":
+    "日々の達成を、自分らしいスタイルに。",
+  "YOUR POINTS WALLET": "使えるポイント",
+  "Earn by showing up. Spend on standing out.":
+    "挑戦で貯めて、自分らしさに使おう。",
+  "All rewards": "すべて",
+  Owned: "購入済み",
+  "✓ Owned": "✓ 購入済み",
+  Buy: "購入する",
+  "Need more PT": "ポイント不足",
+  "Your collection": "コレクション",
+  "Made for your main character era": "自分らしく輝くアイテム",
+  "Your collection is waiting ✨": "お気に入りを集めよう ✨",
+  "Pick something that feels like you. Your rewards will appear here.":
+    "自分らしいアイテムを選ぼう。購入したリワードがここに並びます。",
+  "Customize my profile →": "プロフィールをカスタマイズ →",
+  "Just for fun. Points have no cash value.":
+    "ポイントはアプリ内専用です。換金はできません。",
+  "Purple Aura Frame": "パープルオーラフレーム",
+  "Gold Crown": "ゴールドクラウン",
+  "Fire Frame": "炎のフレーム",
+  "Galaxy Background": "銀河の背景",
+  "Custom Title": "カスタム称号",
+  "Lavender Bloom": "ラベンダーブルーム",
+  "Rising Star": "期待の新星",
+  "Soft Lavender": "やさしいラベンダー",
+  "AI Slayer": "AIを超える者",
+  "👑 Gold Crown": "👑 ゴールドクラウン",
+  "🌟 Rising Star": "🌟 期待の新星",
+  "← Back to profile": "← プロフィールへ",
+  "GET TO KNOW YOURSELF": "自分を知ろう",
+  "Your Habit DNA 🧬": "あなたのHabit DNA 🧬",
+  "Small patterns tell a bigger story. Here’s yours.":
+    "小さな習慣に、あなたらしさが見えてくる。",
+  "You’re a work in progress. In the best way.": "あなたは今も、成長の途中。",
+  "A snapshot of your habits, built from your everyday challenges.":
+    "毎日のチャレンジから見えてきた、あなたの習慣。",
+  "Challenges completed": "達成した目標",
+  "Best category · Gym": "得意カテゴリ · ジム",
+  "Where you shine": "あなたの得意分野",
+  "SUCCESS RATE": "達成率",
+  "A little self-discovery": "自分を知るヒント",
+  "Illustrative insights from mock data · Not a real AI analysis":
+    "モックデータによる例示 · 実際のAI分析ではありません",
+  "Wake Up": "早起き",
+  Gym: "ジム",
+  Cooking: "料理",
+  "Fitness is your superpower": "運動があなたの強み",
+  "Your fitness challenges have the highest completion rate.":
+    "運動のチャレンジで最も高い達成率を記録しています。",
+  "Start the week strong": "週の始まりを大切に",
+  "You are more successful earlier in the week. Save a big goal for Monday.":
+    "週の前半は達成しやすい傾向があります。大きな目標は月曜日に。",
+  "A little optimistic? We love it.": "ちょっと楽観的？それもいいね。",
+  "Your confidence is usually slightly higher than your actual completion rate.":
+    "自信度は、実際の達成率より少し高めになる傾向があります。",
+  "is making it happen": "が挑戦中",
+  "✦ AI PREDICTION": "✦ AIの予想",
+  "Chance of success": "達成する確率",
+  "Mock estimate": "モック推定",
+  "What do you think?": "あなたの予想は？",
+  YES: "達成する",
+  NO: "達成しない",
+  "✓ YES": "✓ 達成する",
+  "✓ NO": "✓ 達成しない",
+  "You picked YES": "「達成する」を選択",
+  "You picked NO": "「達成しない」を選択",
+  "Add friends by ID or QR →": "ID・QRで友達を追加 →",
+  "YOUR PEOPLE": "一緒にがんばる仲間",
+  "Better with friends.": "友達と一緒なら、もっと楽しい。",
+  "Find a friend by their ID, or scan their QR code.":
+    "IDで検索するか、友達のQRコードを読み取ろう。",
+  "By ID": "IDで追加",
+  "Scan QR": "QR読み取り",
+  "My QR": "自分のQR",
+  "Friend ID": "友達のID",
+  Search: "検索する",
+  "Example: noah-1250": "例：noah-1250",
+  "Demo IDs: noah-1250, liam-0580, mia-0420":
+    "デモID：noah-1250、liam-0580、mia-0420",
+  "Add friend": "友達に追加",
+  "Already friends": "追加済み",
+  "Friend added!": "友達に追加しました！",
+  "Friend not found. Try one of the demo IDs.":
+    "見つかりませんでした。デモIDをお試しください。",
+  "That’s your own ID.": "これは自分のIDです。",
+  "Enter a friend ID.": "友達のIDを入力してください。",
+  "Invalid friend QR code.": "友達用のQRコードではありません。",
+  "Your friends": "友達一覧",
+  "No friends yet. Find your first friend above.":
+    "まだ友達がいません。IDやQRから追加してみよう。",
+  "Show this QR to a friend.": "このQRを友達に見せてください。",
+  "Your ID": "あなたのID",
+  "Start camera": "カメラを起動",
+  "Stop camera": "カメラを停止",
+  "Scan again": "もう一度読み取る",
+  "Camera access is needed to scan a friend’s QR code.":
+    "友達のQRを読み取るために、カメラへのアクセスが必要です。",
+  "Camera permission was denied. Enable it in settings or add by ID.":
+    "カメラが許可されていません。設定で許可するか、IDで追加してください。",
+  "Camera unavailable. Try another device or add by ID.":
+    "カメラを利用できません。別の端末かID追加をお試しください。",
+  "Open settings": "設定を開く",
+  "Point the camera at your friend’s QR.": "友達のQRにカメラを向けてください。",
+  "Check QR": "QRを確認",
+  "Demo only · Friends reset on reload.":
+    "デモ機能 · 友達は再読み込みでリセットされます。",
+  "Debug language": "デバッグ表示言語",
+};
+
+export function translate(text: string, locale: "en" | "ja"): string {
+  if (locale === "en") return text;
+  const key = text.replace(/\s+/g, " ").trim();
+  if (japanese[key]) return japanese[key];
+  const patterns: [RegExp, (...parts: string[]) => string][] = [
+    [/^(\d+) friends$/, (n) => `友達 ${n}人`],
+    [/^(\d+) PT this week$/, (n) => `今週 ${n} PT`],
+    [/^Difficulty (\d+) of 5$/, (n) => `難易度5段階中${n}`],
+    [
+      /^Predict (yes|no), ([\d.]+) times points$/,
+      (choice, odds) =>
+        `${choice === "yes" ? "達成する" : "達成しない"}と予想、${odds}倍のポイント`,
+    ],
+    [/^Their confidence (\d+)%$/, (n) => `本人の自信度 ${n}%`],
+    [/^👥 (\d+) friend predictions$/, (n) => `👥 ${n}人が予想`],
+    [/^(\d+) days$/, (n) => `${n}日`],
+    [/^✦ You’re #(\d+) this week$/, (n) => `✦ 今週のあなたは${n}位`],
+    [/^(.+) \(you\)$/, (name) => `${name}（あなた）`],
+    [/^✦ (.+)$/, (title) => `✦ ${japanese[title] ?? title}`],
+    [
+      /^(.+) is yours! Equip it from your profile\.$/,
+      (name) =>
+        `${japanese[name] ?? name}を購入しました！プロフィールで装備できます。`,
+    ],
+    [
+      /^◷ (Today|Tomorrow|In 3 days) at (.+) · local time$/,
+      (day, time) => `◷ ${japanese[day]} ${time} · 現地時間`,
+    ],
+    [/^◷ (.+)$/, (deadline) => `◷ ${translate(deadline, locale)}`],
+    [/^(\d+)h (\d+)m remaining$/, (h, m) => `残り${h}時間${m}分`],
+    [/^(\d+) days remaining$/, (n) => `残り${n}日`],
+    [
+      /^(Today|Tomorrow|In 3 days) · (.+)$/,
+      (day, time) => `${japanese[day]} · ${time}`,
+    ],
+  ];
+  for (const [pattern, render] of patterns) {
+    const match = key.match(pattern);
+    if (match) return render(...match.slice(1));
+  }
+  return text;
+}

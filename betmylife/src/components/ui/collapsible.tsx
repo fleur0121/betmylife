@@ -1,3 +1,7 @@
+/**
+ * 見出しを押すと内容を開閉するスターター用コンポーネント。
+ * 開閉状態をローカルで持ち、開くときにフェードイン表示する。
+ */
 import { SymbolView } from 'expo-symbols';
 import { PropsWithChildren, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';

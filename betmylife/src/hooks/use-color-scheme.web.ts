@@ -1,21 +1,22 @@
-import { useEffect, useState } from 'react';
+/**
+ * Webでサーバー描画と初回クライアント描画のテーマを一致させるフック。
+ * ハイドレーション前はlightを返し、その後はReact Nativeが取得した端末のテーマを返す。
+ * useSyncExternalStoreでサーバー／クライアントの段階を判別し、Effect内の即時setStateを避ける。
+ */
+import { useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
-/**
- * To support static rendering, this value needs to be re-calculated on the client side for web
- */
+const subscribe = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
+
+/** Keep the server and first hydration render consistent before reading the device theme. */
 export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
-
+  const hasHydrated = useSyncExternalStore(
+    subscribe,
+    clientSnapshot,
+    serverSnapshot,
+  );
   const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
-  return 'light';
+  return hasHydrated ? colorScheme : 'light';
 }

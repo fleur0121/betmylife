@@ -1,3 +1,7 @@
+/**
+ * 既存スターターのWeb用ロゴアニメーション。
+ * CSS ModulesとReanimatedでロゴを描画する。Webのスプラッシュオーバーレイは表示しない。
+ */
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Keyframe, Easing } from 'react-native-reanimated';
