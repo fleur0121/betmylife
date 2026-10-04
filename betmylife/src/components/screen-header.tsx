@@ -11,6 +11,9 @@ import { Text } from './localized-text';
 import { palette as c } from '@/constants/design';
 import { useLanguage } from '@/i18n/language';
 import { BrandAsset } from './brand-asset';
+import { API_URL } from '@/constants/api';
+import { useAppState } from '@/state/app-state';
+import { useEffect, useState } from 'react';
 export function ScreenHeader({
   title,
   home = false,
@@ -21,6 +24,22 @@ export function ScreenHeader({
   back?: boolean;
 }) {
   const { t } = useLanguage();
+  const { state } = useAppState();
+  const [pendingRequests, setPendingRequests] = useState(0);
+
+  useEffect(() => {
+    if (!home || !state.authUserId) return;
+    let cancelled = false;
+    fetch(`${API_URL}/users/${state.authUserId}/friend-requests`)
+      .then((response) => (response.ok ? response.json() : []))
+      .then((requests: unknown[]) => {
+        if (!cancelled) setPendingRequests(requests.length);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingRequests(0);
+      });
+    return () => { cancelled = true; };
+  }, [home, state.authUserId]);
   return (
     <View style={styles.header}>
       {back && (
@@ -44,45 +63,45 @@ export function ScreenHeader({
         </Pressable>
       )}
       {home ? (
-        <Image
-          accessibilityLabel="Predict My Life"
-          contentFit="contain"
-          source={require('@/assets/images/logo-stacked-sticker.png')}
-          style={styles.wordmark}
-        />
+        <>
+          <Image
+            accessibilityLabel="Predict My Life"
+            contentFit="contain"
+            source={require('@/assets/images/logo-stacked-sticker.png')}
+            style={styles.wordmark}
+          />
+          <View style={styles.homeActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
+              onPress={() => router.push({ pathname: '/notifications' } as never)}
+              style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.55 }]}
+            >
+              <SymbolView
+                name={{
+                  ios: 'bell',
+                  android: 'notifications_none',
+                  web: 'notifications_none',
+                }}
+                size={22}
+                tintColor={c.text}
+              />
+              {pendingRequests > 0 && <View style={styles.notificationDot} />}
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('Open your profile')}
+              onPress={() => router.push('/profile')}
+              style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.55 }]}
+            >
+              <BrandAsset name="mascotCheerful" style={styles.avatarMascot} />
+            </Pressable>
+          </View>
+        </>
       ) : (
         <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
           {title}
         </Text>
-      )}
-      {home && (
-        <>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Notifications"
-          onPress={() => router.push({ pathname: '/notifications' } as never)}
-          style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.55 }]}
-        >
-          <SymbolView
-            name={{
-              ios: 'bell',
-              android: 'notifications_none',
-              web: 'notifications_none',
-            }}
-            size={22}
-            tintColor={c.text}
-          />
-          <View style={styles.notificationDot} />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Open your profile')}
-          onPress={() => router.push('/profile')}
-          style={({ pressed }) => [styles.avatar, pressed && { opacity: 0.55 }]}
-        >
-          <BrandAsset name="mascotCheerful" style={styles.avatarMascot} />
-        </Pressable>
-        </>
       )}
     </View>
   );
@@ -108,7 +127,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: c.text,
   },
-  wordmark: { flex: 1, minWidth: 0, maxWidth: 132, height: 58 },
+  wordmark: { width: 132, height: 58 },
+  homeActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 8, right: 6, width: 7, height: 7, borderRadius: 4, backgroundColor: c.coral, borderWidth: 1, borderColor: c.card },
   avatar: {

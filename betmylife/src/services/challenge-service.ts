@@ -37,6 +37,7 @@ export type SavedChallenge = {
   prediction_source: string;
   prediction_model_version: string | null;
   prediction_meta: Record<string, unknown> | null;
+  created_at: string;
 };
 
 export async function saveChallenge(input: CreateChallengeInput): Promise<SavedChallenge> {

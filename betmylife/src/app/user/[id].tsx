@@ -24,6 +24,8 @@ export default function UserProfile() {
   const [followBusy, setFollowBusy] = useState(false);
   const [followError, setFollowError] = useState("");
   const [requestSent, setRequestSent] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [profile, setProfile] = useState<{
     id: string; username: string; nickname?: string | null; display_name: string;
     avatar: string; bio: string; points: number;
@@ -31,30 +33,43 @@ export default function UserProfile() {
   const [posts, setPosts] = useState<Challenge[]>([]);
   const isCurrentUser = Boolean(state.authUserId && state.authUserId === id);
   const profileName = profile?.nickname?.trim() || profile?.display_name || profile?.username || "Profile";
-  const isFollowing = Boolean(state.authUserId && followingSnapshot?.userId === state.authUserId && followingSnapshot.ids.includes(id));
+  const isFollowing = Boolean(
+    state.authUserId &&
+      (followingSnapshot?.userId === state.authUserId
+        ? followingSnapshot.ids.includes(id)
+        : state.followingIds.includes(id)),
+  );
 
   useEffect(() => {
     if (!state.authUserId || !id) {
       return;
     }
     let cancelled = false;
-    Promise.all([
-      fetch(`${API_URL}/users/${id}/profile`).then(async (response) => {
+    fetch(`${API_URL}/users/${id}/profile`)
+      .then(async (response) => {
         if (!response.ok) throw new Error("Profile not found");
         return response.json();
-      }),
-      fetch(`${API_URL}/users/${id}/challenges?viewer_id=${encodeURIComponent(state.authUserId)}`).then(async (response) => {
+      })
+      .then((profileResult) => {
+        if (!cancelled) {
+          setProfile(profileResult);
+          setProfileLoading(false);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setProfileLoading(false);
+          setFollowError(error instanceof Error ? error.message : "Could not load profile.");
+        }
+      });
+
+    fetch(`${API_URL}/users/${id}/challenges?viewer_id=${encodeURIComponent(state.authUserId)}`)
+      .then(async (response) => {
         if (!response.ok) throw new Error("Could not load challenges");
         return response.json();
-      }),
-      fetch(`${API_URL}/users/${state.authUserId}/following`).then(async (response) => {
-        if (!response.ok) throw new Error(`Could not load followed users (${response.status})`);
-        return response.json() as Promise<{ followed_ids: string[] }>;
-      }),
-    ])
-      .then(([profileResult, challengeResult, followingResult]) => {
+      })
+      .then((challengeResult: any[]) => {
         if (cancelled) return;
-        setProfile(profileResult);
         setPosts(challengeResult.map((item: any) => ({
           id: item.id, ownerId: item.user_id, ownerUsername: item.user_handle,
           user: item.user_name, avatar: item.avatar ?? "🌱", color: c.lavender,
@@ -63,13 +78,15 @@ export default function UserProfile() {
           probability: item.probability, yesOdds: item.yes_odds.toFixed(2), noOdds: item.no_odds.toFixed(2),
           friends: 0, visibility: item.visibility, proofPlan: item.proof_plan ?? undefined,
         })));
-        setFollowingSnapshot({ userId: state.authUserId!, ids: followingResult.followed_ids });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setFollowError(error instanceof Error ? error.message : "Could not load follow status.");
+        if (!cancelled) setFollowError(error instanceof Error ? error.message : "Could not load challenges.");
+      })
+      .finally(() => {
+        if (!cancelled) setPostsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, state.authUserId]);
+  }, [id, state.authUserId, state.followingIds]);
 
   async function toggleFollow() {
     if (!state.authUserId || !id) {
@@ -105,6 +122,17 @@ export default function UserProfile() {
     } finally {
       setFollowBusy(false);
     }
+  }
+
+  if (profileLoading && !profile) {
+    return (
+      <Screen title="Profile" back>
+        <Card>
+          <Text style={s.sectionTitle}>Loading profile…</Text>
+          <Text style={s.muted}>Loading profile information.</Text>
+        </Card>
+      </Screen>
+    );
   }
 
   if (!profile) {
@@ -170,7 +198,9 @@ export default function UserProfile() {
       </Card>
       <Text style={s.sectionTitle}>{profileName}&apos;s challenges</Text>
       <View style={styles.posts}>
-        {posts.length ? (
+        {postsLoading ? (
+          <Card><Text style={s.muted}>Loading challenges…</Text></Card>
+        ) : posts.length ? (
           posts.map((challenge) => (
             <ChallengeCard key={challenge.id} challenge={challenge} />
           ))

@@ -12,8 +12,7 @@ import { s } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
-import { challenges as demoChallenges, type Challenge } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
+import type { Challenge } from "@/mock/data";
 import { getPublicChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
@@ -87,6 +86,8 @@ export default function Home() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [profilePoints, setProfilePoints] = useState<number | null>(null);
+  const [renderedAt] = useState(() => Date.now());
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const list = useRef<FlatList<Challenge>>(null);
   useEffect(() => {
     if (!state.authUserId) return;
@@ -99,6 +100,7 @@ export default function Home() {
           challenges: items.map((item) => ({
             id: item.id,
             ownerId: item.user_id,
+            ownerUsername: item.user_handle,
             user: item.user_name,
             avatar: "🌷",
             color: c.lavender,
@@ -117,6 +119,7 @@ export default function Home() {
             proofPlan: item.proof_plan ?? undefined,
             result: item.result ?? undefined,
             resolvedAt: item.resolved_at ?? undefined,
+            createdAt: item.created_at,
           })),
         });
         setLoadError("");
@@ -148,9 +151,26 @@ export default function Home() {
     };
   }, [state.authUserId]);
   const predictionCount = Object.keys(state.stakedPredictions).length;
-  const featured =
-    state.challenges.find((item) => item.id === "read-today") ??
-    demoChallenges.find((item) => item.id === "read-today");
+  const featuredCandidates = state.challenges
+    .filter((item) => {
+      const isOtherUser = item.ownerId !== state.authUserId;
+      const isActive = !item.result && (!item.deadlineAt || new Date(item.deadlineAt).getTime() > renderedAt);
+      const alreadyPicked = Object.values(state.stakedPredictions).some(
+        (prediction) => prediction.challengeId === item.id && prediction.userId === state.authUserId && prediction.status !== "void",
+      );
+      return isOtherUser && item.visibility === "public" && isActive && !alreadyPicked;
+    })
+    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""));
+  useEffect(() => {
+    if (featuredCandidates.length <= 1) return;
+    const timer = setInterval(() => {
+      setFeaturedIndex((current) => (current + 1) % featuredCandidates.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [featuredCandidates.length]);
+  const featured = featuredCandidates.length
+    ? featuredCandidates[featuredIndex % featuredCandidates.length]
+    : undefined;
   const myChallenges = state.challenges.filter(
     (item) => item.ownerId === state.authUserId,
   );
@@ -166,9 +186,6 @@ export default function Home() {
       };
     })
     .filter((pick): pick is { challenge: Challenge; choice: "yes" | "no"; odds: string } => pick !== null);
-  const friendNames = friendDirectory
-    .filter((friend) => state.friendIds.includes(friend.id))
-    .map((friend) => friend.name);
   const feed = state.challenges.filter(
     (item) =>
       item.id !== featured?.id &&
@@ -176,7 +193,7 @@ export default function Home() {
       (filter === "Public"
         ? item.visibility === "public"
         : filter === "Friends"
-          ? friendNames.includes(item.user)
+          ? state.friendIds.includes(item.ownerId ?? "")
           : !!state.predictions[item.id]),
   );
   const dateStrip = Array.from({ length: 21 }, (_, index) => {
