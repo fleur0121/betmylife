@@ -19,6 +19,7 @@ import { SymbolView } from "expo-symbols";
 import { useRef, useState } from "react";
 import {
   FlatList,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,19 +27,26 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const dates = [
-  { day: "Mon", date: "12" },
-  { day: "Tue", date: "13" },
-  { day: "Wed", date: "14" },
-  { day: "Thu", date: "15" },
-  { day: "Fri", date: "16" },
-];
 const categories = [
   { label: "All", icon: null },
   { label: "Study", icon: "iconStudy" },
   { label: "Fitness", icon: "iconFitness" },
   { label: "Lifestyle", icon: "iconLifestyle" },
 ] as const;
+
+function sameDate(left: Date, right: Date) {
+  return left.toDateString() === right.toDateString();
+}
+
+function calendarDays(month: Date) {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const days: (Date | null)[] = Array.from({ length: first.getDay() }, () => null);
+  for (let day = 1; day <= count; day += 1) {
+    days.push(new Date(month.getFullYear(), month.getMonth(), day));
+  }
+  return days;
+}
 
 function StatTile({
   asset,
@@ -62,10 +70,12 @@ function StatTile({
 
 export default function Home() {
   const { state } = useAppState();
-  const { t } = useLanguage();
+  const { locale, t } = useLanguage();
   const [filter, setFilter] = useState("Public");
   const [category, setCategory] = useState("All");
-  const [selectedDate, setSelectedDate] = useState("Wed");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [calendarVisible, setCalendarVisible] = useState(false);
   const list = useRef<FlatList<Challenge>>(null);
   const featured = state.challenges.find((item) => item.id === "read-today");
   const friendNames = friendDirectory
@@ -81,6 +91,13 @@ export default function Home() {
           ? friendNames.includes(item.user)
           : !!state.predictions[item.id]),
   );
+  const dateStrip = Array.from({ length: 21 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() + index - 10);
+    return date;
+  });
+  const weekday = (date: Date) => date.toLocaleDateString(locale === "ja" ? "ja-JP" : "en-US", { weekday: "short" });
+  const monthLabel = calendarMonth.toLocaleDateString(locale === "ja" ? "ja-JP" : "en-US", { year: "numeric", month: "long" });
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={styles.screen}>
@@ -114,32 +131,58 @@ export default function Home() {
                     <Text style={styles.friendsLinkText}>Your circle</Text>
                   </Pressable>
                 </View>
-                <View style={styles.dateRow}>
-                  {dates.map(({ day, date }) => (
+                <View style={styles.dateControls}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dateRow}>
+                  {dateStrip.map((date) => (
                     <Pressable
-                      key={day}
+                      key={date.toISOString()}
                       accessibilityRole="button"
-                      accessibilityState={{ selected: selectedDate === day }}
-                      onPress={() => setSelectedDate(day)}
+                      accessibilityState={{ selected: sameDate(selectedDate, date) }}
+                      onPress={() => setSelectedDate(date)}
                       style={({ pressed }) => [
                         styles.dateItem,
-                        selectedDate === day && styles.dateSelected,
+                        sameDate(selectedDate, date) && styles.dateSelected,
                         pressed && s.pressed,
                       ]}
                     >
-                      <Text style={[styles.dateDay, selectedDate === day && styles.dateSelectedText]}>{day}</Text>
-                      <Text style={[styles.dateNumber, selectedDate === day && styles.dateSelectedText]}>{date}</Text>
+                      <Text style={[styles.dateDay, sameDate(selectedDate, date) && styles.dateSelectedText]}>{weekday(date)}</Text>
+                      <Text style={[styles.dateNumber, sameDate(selectedDate, date) && styles.dateSelectedText]}>{date.getDate()}</Text>
                     </Pressable>
                   ))}
-                  <View style={styles.calendarButton}>
+                </ScrollView>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t("Open calendar")}
+                  onPress={() => { setCalendarMonth(selectedDate); setCalendarVisible(true); }}
+                  style={({ pressed }) => [styles.calendarButton, pressed && s.pressed]}
+                >
                     <SymbolView
                       name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
                       size={22}
                       tintColor={c.text}
                     />
-                  </View>
+                </Pressable>
                 </View>
               </View>
+              <Modal visible={calendarVisible} transparent animationType="fade" onRequestClose={() => setCalendarVisible(false)}>
+                <View style={styles.modalBackdrop}>
+                  <View style={styles.calendarCard}>
+                    <View style={styles.calendarHeader}>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("Previous month")} onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))} style={styles.monthButton}><Text style={styles.monthArrow}>‹</Text></Pressable>
+                      <Text style={styles.monthTitle}>{monthLabel}</Text>
+                      <Pressable accessibilityRole="button" accessibilityLabel={t("Next month")} onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))} style={styles.monthButton}><Text style={styles.monthArrow}>›</Text></Pressable>
+                    </View>
+                    <View style={styles.calendarGrid}>
+                      {calendarDays(calendarMonth).map((date, index) => date ? (
+                        <Pressable key={date.toISOString()} accessibilityRole="button" onPress={() => { setSelectedDate(date); setCalendarVisible(false); }} style={[styles.calendarDay, sameDate(selectedDate, date) && styles.calendarDaySelected]}>
+                          <Text style={[styles.calendarDayText, sameDate(selectedDate, date) && styles.calendarDayTextSelected]}>{date.getDate()}</Text>
+                        </Pressable>
+                      ) : <View key={`empty-${index}`} style={styles.calendarDay} />)}
+                    </View>
+                    <Pressable accessibilityRole="button" onPress={() => setCalendarVisible(false)} style={styles.closeCalendar}><Text style={styles.closeCalendarText}>{t("Close")}</Text></Pressable>
+                  </View>
+                </View>
+              </Modal>
               {featured ? (
                 <View style={styles.featureWrap}>
                   <FeaturedChallengeCard challenge={featured} />
@@ -153,7 +196,7 @@ export default function Home() {
               )}
               <View style={styles.statsRow}>
                 <StatTile asset="iconStreak" value="21" label="DAY STREAK" color={c.peach} />
-                <StatTile asset="iconPoints" value="420" label="POINTS" color={c.cream} />
+                <StatTile asset="iconPoints" value={state.wallet.toLocaleString()} label="POINTS" color={c.cream} />
                 <StatTile asset="iconPrediction" value="8" label="PREDICTIONS" color={c.lavender} />
               </View>
               <View style={styles.feedHeading}>
@@ -246,13 +289,27 @@ const styles = StyleSheet.create({
   weekLabel: { color: c.muted, fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
   friendsLink: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8 },
   friendsLinkText: { color: c.primary, fontSize: 10, fontWeight: "800" },
-  dateRow: { flexDirection: "row", alignItems: "center", gap: 7 },
-  dateItem: { flex: 1, minHeight: 55, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: c.card },
+  dateControls: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dateRow: { flexGrow: 1, flexDirection: "row", alignItems: "center", gap: 7, paddingRight: 2 },
+  dateItem: { width: 54, minHeight: 55, borderRadius: 16, alignItems: "center", justifyContent: "center", gap: 2, backgroundColor: c.card },
   dateSelected: { backgroundColor: c.primary },
   dateDay: { color: c.muted, fontSize: 9, fontWeight: "700" },
   dateNumber: { color: c.text, fontSize: 15, fontWeight: "900" },
   dateSelectedText: { color: "#FFFFFF" },
-  calendarButton: { width: 36, height: 50, alignItems: "center", justifyContent: "center" },
+  calendarButton: { width: 38, height: 50, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.card },
+  modalBackdrop: { flex: 1, justifyContent: "center", padding: 22, backgroundColor: "rgba(40,35,60,0.38)" },
+  calendarCard: { padding: 18, borderRadius: 22, backgroundColor: c.card, gap: 16 },
+  calendarHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  monthButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: c.lavenderLight },
+  monthArrow: { color: c.primaryDark, fontSize: 28, lineHeight: 30 },
+  monthTitle: { color: c.text, fontSize: 17, fontWeight: "900" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  calendarDay: { width: "13.4%", aspectRatio: 1, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  calendarDaySelected: { backgroundColor: c.primary },
+  calendarDayText: { color: c.text, fontSize: 14, fontWeight: "700" },
+  calendarDayTextSelected: { color: c.card },
+  closeCalendar: { minHeight: 44, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: c.lavenderLight },
+  closeCalendarText: { color: c.primaryDark, fontSize: 13, fontWeight: "800" },
   featureWrap: { paddingHorizontal: 14 },
   emptyHero: { marginHorizontal: 14, minHeight: 270, padding: 20, borderRadius: 26, backgroundColor: c.card, alignItems: "center", justifyContent: "center", gap: 6 },
   emptyMascot: { width: 125, height: 105 },

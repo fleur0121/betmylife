@@ -5,12 +5,13 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { Text } from "@/components/localized-text";
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { Button, Card, Screen, SectionHeader, s } from "@/components/ui-kit";
 import { FeedTabs } from "@/components/feed-tabs";
 import { ChallengeCard } from "@/components/challenge-card";
-import { currentUser as user, rewards, type CosmeticSlot } from "@/mock/data";
+import { currentUser as user, rewards, type Challenge, type CosmeticSlot } from "@/mock/data";
 import { myFriendId } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { palette as c } from "@/constants/design";
@@ -55,7 +56,9 @@ export default function Profile() {
         <View style={styles.identity}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
-              <View style={styles.avatarCircle}><BrandAsset name="mascotCheerful" style={styles.avatarMascot} /></View>
+              <View style={styles.avatarCircle}>
+                <BrandAsset name="mascotCheerful" style={styles.avatarMascot} label="Fuka avatar" />
+              </View>
               <BrandAsset name={activeFrame} style={styles.avatarFrame} />
               <View style={styles.levelChip}><Text style={styles.levelText}>LEVEL 5</Text></View>
             </View>
@@ -74,7 +77,7 @@ export default function Profile() {
       </View>
 
       <View style={styles.statsRow}>
-        <StatTile asset="iconPoints" value={user.points.toLocaleString()} label="POINTS" color={c.cream} />
+        <StatTile asset="iconPoints" value={state.wallet.toLocaleString()} label="POINTS" color={c.cream} />
         <StatTile asset="iconConfidence" value={`${user.accuracy}%`} label="ACCURACY" color={c.lavender} />
         <StatTile asset="iconStreak" value={`${user.streak}`} label="DAY STREAK" color={c.peach} />
         <StatTile asset="iconChallenge" value={`${user.completed}`} label="CHALLENGES" color={c.mint} />
@@ -118,7 +121,10 @@ export default function Profile() {
             {slots.map((slot, index) => (
               <View key={slot} style={[styles.styleRow, index > 0 && styles.styleDivider]}>
                 {slot === "Frame" ? (
-                  <View style={styles.framePreview}><BrandAsset name={activeFrame} style={styles.framePreviewImage} /></View>
+                  <View style={styles.framePreview}>
+                    <SymbolView name={{ ios: "person.fill", android: "person", web: "person" }} size={12} tintColor={c.primaryDark} />
+                    <BrandAsset name={activeFrame} style={styles.framePreviewImage} />
+                  </View>
                 ) : (
                   <BrandAsset name={slot === "Title" ? "stickerFocused" : slot === "Badge" ? "badgeAiSlayer" : "stickerSmallSteps"} style={styles.styleIcon} />
                 )}
@@ -155,10 +161,40 @@ export default function Profile() {
           </Pressable>
 
           <View style={styles.sectionHeading}><SectionHeader title="Recent challenges" /><Text style={styles.sectionNote}>LATEST</Text></View>
-          {posts.slice(0, 1).map((challenge) => <ChallengeCard key={challenge.id} challenge={challenge} />)}
+          <View style={styles.recentList}>
+            {posts.slice(0, 3).map((challenge) => (
+              <RecentChallengeRow key={challenge.id} challenge={challenge} onPress={() => setTab("My challenges")} />
+            ))}
+            {!posts.length && <Text style={s.muted}>Your recent challenges will show up here.</Text>}
+          </View>
         </>
       )}
     </Screen>
+  );
+}
+
+function RecentChallengeRow({ challenge, onPress }: { challenge: Challenge; onPress: () => void }) {
+  const categoryAsset: BrandAssetName = challenge.category === "Fitness"
+    ? "iconFitness"
+    : challenge.category === "Study"
+      ? "iconStudy"
+      : "iconLifestyle";
+  const categoryColor = challenge.category === "Fitness" ? c.mint : challenge.category === "Study" ? c.sky : c.lavender;
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.recentCard, pressed && s.pressed]}>
+      <View style={[styles.recentIconWrap, { backgroundColor: categoryColor }]}>
+        <BrandAsset name={categoryAsset} style={styles.recentIcon} />
+      </View>
+      <View style={styles.recentBody}>
+        <Text style={styles.recentCategory}>{challenge.category.toUpperCase()} · {challenge.confidence}% CONFIDENT</Text>
+        <Text numberOfLines={2} style={styles.recentTitle}>{challenge.title}</Text>
+        <View style={styles.recentMeta}>
+          <Text numberOfLines={1} style={styles.recentDeadline}>◷ {challenge.deadline}</Text>
+          <View style={styles.recentAi}><Text style={styles.recentAiText}>AI {challenge.probability}%</Text></View>
+        </View>
+      </View>
+      <Text style={styles.recentArrow}>›</Text>
+    </Pressable>
   );
 }
 
@@ -228,8 +264,8 @@ const styles = StyleSheet.create({
   styleIcon: { width: 37, height: 39 },
   styleSlot: { color: c.muted, width: 75, fontSize: 10, fontWeight: "700" },
   styleValue: { flex: 1, color: c.text, textAlign: "right", fontSize: 10, fontWeight: "800" },
-  framePreview: { width: 39, height: 39, alignItems: "center", justifyContent: "center" },
-  framePreviewImage: { width: 39, height: 39 },
+  framePreview: { position: "relative", width: 39, height: 39, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  framePreviewImage: { position: "absolute", width: 78, height: 78, top: -19.5, left: -19.5 },
   ownedItems: { gap: 8 },
   ownedRow: { minHeight: 54, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 16, backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
   ownedArt: { width: 42, height: 42 },
@@ -240,6 +276,18 @@ const styles = StyleSheet.create({
   collectionIcon: { width: 42, height: 42 },
   collectionTitle: { color: c.text, fontSize: 12, fontWeight: "900" },
   collectionCopy: { marginTop: 2, color: c.muted, fontSize: 9 },
+  recentList: { gap: 9 },
+  recentCard: { minHeight: 91, padding: 11, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, borderRadius: 18, backgroundColor: c.card },
+  recentIconWrap: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+  recentIcon: { width: 42, height: 42 },
+  recentBody: { flex: 1, minWidth: 0, gap: 3 },
+  recentCategory: { color: c.primaryDark, fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
+  recentTitle: { color: c.text, fontSize: 12, lineHeight: 16, fontWeight: "800" },
+  recentMeta: { marginTop: 2, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 },
+  recentDeadline: { flex: 1, color: c.muted, fontSize: 8, fontWeight: "700" },
+  recentAi: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 10, backgroundColor: c.lavenderLight },
+  recentAiText: { color: c.primaryDark, fontSize: 8, fontWeight: "900" },
+  recentArrow: { color: c.primary, fontSize: 25, fontWeight: "700" },
   posts: { borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: c.border },
   emptyArt: { alignSelf: "center", width: 112, height: 82 },
 });

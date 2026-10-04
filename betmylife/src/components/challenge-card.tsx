@@ -5,7 +5,7 @@
  */
 import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
-import type { Challenge, Prediction } from "@/mock/data";
+import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { getChallengeTitle, getJapaneseTitle } from "@/utils/challenge-text";
@@ -15,60 +15,7 @@ import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "./localized-text";
 import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 import { BrandAsset } from "./brand-asset";
-function PredictionButton({
-  choice,
-  odds,
-  selected,
-  onPress,
-}: {
-  choice: Prediction;
-  odds: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const { t } = useLanguage();
-  const yes = choice === "yes";
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={t(`Predict ${choice}, ${odds} times points`)}
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.predict,
-        {
-          backgroundColor: selected
-            ? yes
-              ? c.green
-              : c.red
-            : yes
-              ? c.mint
-              : c.pink,
-          borderColor: selected ? (yes ? c.green : c.red) : "transparent",
-        },
-        pressed && s.pressed,
-      ]}
-    >
-      <Text
-        style={[
-          styles.choice,
-          { color: selected ? c.card : yes ? c.green : c.red },
-        ]}
-      >
-        {selected ? "✓ " : ""}
-        {yes ? "YES" : "NO"}
-      </Text>
-      <Text
-        style={[
-          styles.odds,
-          { color: selected ? c.card : yes ? c.green : c.red },
-        ]}
-      >
-        {odds}×
-      </Text>
-    </Pressable>
-  );
-}
+import { PredictionPanel } from "./prediction-panel";
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { state, dispatch } = useAppState();
   const { locale, t } = useLanguage();
@@ -162,21 +109,9 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       </View>
       <View style={styles.voteLabel}>
         <Text style={styles.question}>Will they make it?</Text>
-        <Text style={s.caption}>Point multiplier</Text>
+        <Text style={s.caption}>Stake points</Text>
       </View>
-      <View style={s.row}>
-        {(["yes", "no"] as const).map((choice) => (
-          <PredictionButton
-            key={choice}
-            choice={choice}
-            odds={choice === "yes" ? challenge.yesOdds : challenge.noOdds}
-            selected={selected === choice}
-            onPress={() =>
-              dispatch({ type: "predict", id: challenge.id, choice })
-            }
-          />
-        ))}
-      </View>
+      <PredictionPanel challenge={challenge} />
       <View style={styles.footer}>
         <Text style={s.caption}>
           👥 {challenge.friends + (selected ? 1 : 0)} friend predictions
@@ -185,7 +120,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           accessibilityLiveRegion="polite"
           style={[s.caption, { color: selected ? c.primary : c.muted }]}
         >
-          {selected ? `You picked ${selected.toUpperCase()}` : "Tap to predict"}
+          {selected ? `You’re locked on ${selected.toUpperCase()}` : "Choose a side to stake points"}
         </Text>
         {challenge.user === "Fuka" && (
           <Pressable
@@ -249,21 +184,6 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
   question: { fontSize: 14, fontWeight: "800", color: c.text, textAlign: "center" },
-  predict: {
-    flex: 1,
-    minHeight: 46,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    flexWrap: "nowrap",
-  },
-  choice: { fontSize: 13, fontWeight: "800" },
-  odds: { fontSize: 12, fontWeight: "600" },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",

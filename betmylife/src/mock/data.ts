@@ -5,7 +5,23 @@
  * API接続時は、この型を基準に実データへの置き換えを進められる。
  */
 export type Category = "Study" | "Fitness" | "Lifestyle";
-export type Prediction = "yes" | "no";
+export type PredictionChoice = "yes" | "no";
+export type PredictionStatus = "active" | "won" | "lost" | "void";
+export interface Prediction {
+  id: string;
+  challengeId: string;
+  userId: string;
+  choice: PredictionChoice;
+  stake: number;
+  lockedOdds: number;
+  potentialReturn: number;
+  potentialProfit: number;
+  status: PredictionStatus;
+  payout?: number;
+  createdAt: string;
+  lockAt?: string;
+  settledAt?: string;
+}
 export type Visibility = "public" | "friends";
 export type ProofMethod =
   | "photo"
@@ -91,6 +107,8 @@ export type Challenge = {
   title: string;
   category: Category;
   deadline: string;
+  /** Optional canonical deadline; human-readable `deadline` remains for display. */
+  deadlineAt?: string;
   confidence: number;
   probability: number;
   yesOdds: string;
@@ -111,6 +129,10 @@ export const currentUser = {
   completed: 12,
 };
 export const initialWallet = 420;
+const demoClock = Date.now();
+const todayNinePm = new Date(demoClock);
+todayNinePm.setHours(21, 0, 0, 0);
+if (todayNinePm.getTime() <= demoClock) todayNinePm.setDate(todayNinePm.getDate() + 1);
 export const challenges: Challenge[] = [
   {
     id: "read-today",
@@ -120,6 +142,7 @@ export const challenges: Challenge[] = [
     title: "Read for 20 Minutes",
     category: "Study",
     deadline: "Today · 9:00 PM",
+    deadlineAt: todayNinePm.toISOString(),
     confidence: 73,
     probability: 68,
     yesOdds: "1.47",
@@ -156,6 +179,7 @@ export const challenges: Challenge[] = [
     title: "Hit the gym 3 times this week",
     category: "Fitness",
     deadline: "2 days remaining",
+    deadlineAt: new Date(demoClock + 2 * 24 * 60 * 60 * 1000).toISOString(),
     confidence: 90,
     probability: 82,
     yesOdds: "1.22",
@@ -192,6 +216,7 @@ export const challenges: Challenge[] = [
     title: "Finish my assignment before dinner",
     category: "Study",
     deadline: "5h 15m remaining",
+    deadlineAt: new Date(demoClock + 5 * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString(),
     confidence: 70,
     probability: 65,
     yesOdds: "1.54",
@@ -301,7 +326,7 @@ export const rewards: Reward[] = [
     id: "focused-title",
     name: "Focused Title",
     price: 150,
-    asset: "stickerFocused",
+    asset: "rewardFocusBeats",
     color: "#DDF8EC",
     slot: "Title",
   },
@@ -317,7 +342,7 @@ export const rewards: Reward[] = [
     id: "plant-buddy",
     name: "Plant Buddy Sticker",
     price: 100,
-    asset: "iconLifestyle",
+    asset: "rewardPlantBuddy",
     color: "#DDF8EC",
     slot: "Badge",
   },
@@ -325,7 +350,7 @@ export const rewards: Reward[] = [
     id: "study-star",
     name: "Study Star Sticker",
     price: 100,
-    asset: "badgeKnowledgeBuilder",
+    asset: "rewardBookLover",
     color: "#E9E5FA",
     slot: "Badge",
   },

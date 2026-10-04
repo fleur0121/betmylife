@@ -1,48 +1,13 @@
-import { Pressable, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { Text } from "@/components/localized-text";
 import { BrandAsset } from "@/components/brand-asset";
-import type { Challenge, Prediction } from "@/mock/data";
+import type { Challenge } from "@/mock/data";
 import { useAppState } from "@/state/app-state";
 import { palette as c } from "@/constants/design";
-import { s } from "@/components/ui-kit";
-
-function PickButton({
-  choice,
-  odds,
-  selected,
-  onPress,
-}: {
-  choice: Prediction;
-  odds: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const yes = choice === "yes";
-  const base = yes ? c.green : c.coral;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={`${yes ? "Predict yes" : "Predict no"}, ${odds} times points`}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.pick,
-        { backgroundColor: selected ? base : `${base}20`, borderColor: base },
-        pressed && s.pressed,
-      ]}
-    >
-      <Text style={[styles.pickTitle, { color: selected ? "#FFFFFF" : base }]}>
-        {selected ? "✓  " : ""}{yes ? "YES" : "NO"}
-      </Text>
-      <Text style={[styles.pickOdds, { color: selected ? "#FFFFFF" : base }]}>
-        {odds}×
-      </Text>
-    </Pressable>
-  );
-}
+import { PredictionPanel } from "@/components/prediction-panel";
 
 export function FeaturedChallengeCard({ challenge }: { challenge: Challenge }) {
-  const { state, dispatch } = useAppState();
+  const { state } = useAppState();
   const selected = state.predictions[challenge.id];
   return (
     <View style={styles.card}>
@@ -76,25 +41,9 @@ export function FeaturedChallengeCard({ challenge }: { challenge: Challenge }) {
       <View style={styles.predictionMeta}>
         <BrandAsset name="iconPrediction" style={styles.predictionIcon} />
         <Text style={styles.predictionCount}>{challenge.friends + (selected ? 1 : 0)} friend predictions</Text>
-        <Text style={styles.oddsLabel}>POINT MULTIPLIER</Text>
+        <Text style={styles.oddsLabel}>PICK A SIDE · LOCK YOUR ODDS</Text>
       </View>
-      <View style={styles.buttons}>
-        <PickButton
-          choice="yes"
-          odds={challenge.yesOdds}
-          selected={selected === "yes"}
-          onPress={() => dispatch({ type: "predict", id: challenge.id, choice: "yes" })}
-        />
-        <PickButton
-          choice="no"
-          odds={challenge.noOdds}
-          selected={selected === "no"}
-          onPress={() => dispatch({ type: "predict", id: challenge.id, choice: "no" })}
-        />
-      </View>
-      <Text style={styles.selection} accessibilityLiveRegion="polite">
-        {selected ? `You picked ${selected.toUpperCase()} · you can change it anytime` : "Make your pick — predictions are just for fun"}
-      </Text>
+      <PredictionPanel challenge={challenge} variant="featured" />
     </View>
   );
 }
@@ -124,9 +73,4 @@ const styles = StyleSheet.create({
   predictionIcon: { width: 26, height: 26 },
   predictionCount: { color: "#FFFFFF", fontSize: 10, fontWeight: "800" },
   oddsLabel: { marginLeft: "auto", color: "#DCE7FF", fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
-  buttons: { flexDirection: "row", gap: 8, marginTop: 9 },
-  pick: { minHeight: 48, flex: 1, paddingHorizontal: 13, borderWidth: 2, borderRadius: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  pickTitle: { fontSize: 13, fontWeight: "900" },
-  pickOdds: { fontSize: 12, fontWeight: "900" },
-  selection: { marginTop: 7, color: "#DCE7FF", fontSize: 9, textAlign: "center", fontWeight: "600" },
 });

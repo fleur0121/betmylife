@@ -18,6 +18,7 @@ import { BrandAsset } from "@/components/brand-asset";
 import { useLanguage } from "@/i18n/language";
 import type { Category, VerificationPlan, Visibility } from "@/mock/data";
 import { demoCapabilities, getFallbackProofPlan } from "@/utils/fallback-proof-plan";
+import { parseChallengeDeadline } from "@/utils/predictions";
 import { generateProofPlan } from "@/services/proof-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
@@ -39,6 +40,8 @@ export default function Create() {
   const [confidence, setConfidence] = useState(73);
   const [confidenceWidth, setConfidenceWidth] = useState(1);
   const [deadline, setDeadline] = useState("Tomorrow");
+  const [customDate, setCustomDate] = useState("");
+  const [customTime, setCustomTime] = useState("19:00");
   const [error, setError] = useState("");
   const [created, setCreated] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>("public");
@@ -46,11 +49,26 @@ export default function Create() {
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState("");
 
+  function getResolvedDeadline() {
+    if (deadline !== "Custom") {
+      return `${deadline} · ${deadline === "Today" ? "11:59 PM" : "7:00 AM"}`;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(customDate) || !/^\d{2}:\d{2}$/.test(customTime)) {
+      return null;
+    }
+    return `${customDate} · ${customTime}`;
+  }
+
   async function chooseProof() {
     if (title.trim().length < 5) {
       setError(
         "Give your challenge a little more detail (at least 5 characters).",
       );
+      return;
+    }
+    const resolvedDeadline = getResolvedDeadline();
+    if (!resolvedDeadline) {
+      setError("Enter a valid date and time for your deadline.");
       return;
     }
     setProofLoading(true);
@@ -61,7 +79,7 @@ export default function Create() {
           category,
           difficulty,
           confidence,
-          deadline,
+          deadline: resolvedDeadline,
         capabilities: demoCapabilities,
       };
       try {
@@ -78,6 +96,8 @@ export default function Create() {
 
   function createChallenge() {
     if (!proofPlan) return;
+    const resolvedDeadline = getResolvedDeadline();
+    if (!resolvedDeadline) return;
     dispatch({
       type: "create",
       challenge: {
@@ -89,7 +109,8 @@ export default function Create() {
         category,
         difficulty,
         confidence,
-        deadline: `${deadline} · ${deadline === "Today" ? "11:59 PM" : "7:00 AM"}`,
+        deadline: resolvedDeadline,
+        deadlineAt: parseChallengeDeadline(resolvedDeadline)?.toISOString(),
         probability: 68,
         yesOdds: "1.47",
         noOdds: "3.13",
@@ -274,14 +295,37 @@ export default function Create() {
             <Card>
               <Text style={s.sectionTitle}>Set your finish line</Text>
               <Segments
-                options={["Today", "Tomorrow", "In 3 days"]}
+                options={["Today", "Tomorrow", "In 3 days", "Custom"]}
                 value={deadline}
-                onChange={setDeadline}
+                onChange={(value) => {
+                  setDeadline(value);
+                  setProofPlan(null);
+                }}
               />
-              <Text style={s.caption}>
-                ◷ {deadline} at {deadline === "Today" ? "11:59 PM" : "7:00 AM"}{" "}
-                · local time
-              </Text>
+              {deadline === "Custom" ? (
+                <View style={styles.customDeadline}>
+                  <TextInput
+                    accessibilityLabel={t("Deadline date")}
+                    placeholder={t("YYYY-MM-DD")}
+                    placeholderTextColor={c.muted}
+                    value={customDate}
+                    onChangeText={(value) => { setCustomDate(value); setProofPlan(null); }}
+                    keyboardType="numbers-and-punctuation"
+                    style={styles.deadlineInput}
+                  />
+                  <TextInput
+                    accessibilityLabel={t("Deadline time")}
+                    placeholder={t("HH:MM")}
+                    placeholderTextColor={c.muted}
+                    value={customTime}
+                    onChangeText={(value) => { setCustomTime(value); setProofPlan(null); }}
+                    keyboardType="numbers-and-punctuation"
+                    style={styles.deadlineInput}
+                  />
+                </View>
+              ) : (
+                <Text style={s.caption}>◷ {getResolvedDeadline()} · local time</Text>
+              )}
             </Card>
             {proofLoading && (
               <Card style={styles.loadingCard}>
@@ -355,5 +399,7 @@ const styles = StyleSheet.create({
   confidenceTrack: { height: 32, justifyContent: "center", position: "relative" },
   confidenceFill: { height: 9, borderRadius: 8, backgroundColor: c.primary },
   confidenceThumb: { position: "absolute", top: 8, width: 16, height: 16, marginLeft: -8, borderRadius: 10, backgroundColor: c.primaryDark, borderWidth: 3, borderColor: c.card },
+  customDeadline: { flexDirection: "row", gap: 8 },
+  deadlineInput: { flex: 1, minHeight: 46, paddingHorizontal: 12, borderWidth: 1, borderColor: c.border, borderRadius: 12, backgroundColor: c.background, color: c.text, fontSize: 15 },
   percent: { fontSize: 40, fontWeight: "800", color: c.primary },
 });
