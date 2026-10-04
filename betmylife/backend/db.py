@@ -8,6 +8,7 @@ from pymysql.connections import Connection
 
 load_dotenv()
 
+
 def connection_config() -> dict[str, object]:
     return {
         "host": os.getenv("TIDB_HOST", "127.0.0.1"),
@@ -15,7 +16,11 @@ def connection_config() -> dict[str, object]:
         "user": os.getenv("TIDB_USER", "root"),
         "password": os.getenv("TIDB_PASSWORD", ""),
         "database": os.getenv("TIDB_DATABASE", "predict_my_life"),
-        "ssl": {"ca": os.getenv("TIDB_CA_PATH")} if os.getenv("TIDB_CA_PATH") else None,
+        "ssl": (
+            {"ca": os.getenv("TIDB_CA_PATH")}
+            if os.getenv("TIDB_CA_PATH")
+            else None
+        ),
         "cursorclass": pymysql.cursors.DictCursor,
         "autocommit": True,
     }
@@ -33,8 +38,7 @@ def get_connection() -> Iterator[Connection]:
 def init_db() -> None:
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(
-                """
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     id VARCHAR(64) PRIMARY KEY,
                     username VARCHAR(40) NOT NULL UNIQUE,
@@ -54,17 +58,23 @@ def init_db() -> None:
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                         ON UPDATE CURRENT_TIMESTAMP
                 )
-                """
-            )
+                """)
             cursor.execute("SHOW COLUMNS FROM users LIKE 'password_hash'")
             if not cursor.fetchone():
-                cursor.execute("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT ''")
-            for column, definition in (("nickname", "VARCHAR(80) NULL"), ("age", "INT NULL"), ("gender", "VARCHAR(20) NULL")):
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT ''"
+                )
+            for column, definition in (
+                ("nickname", "VARCHAR(80) NULL"),
+                ("age", "INT NULL"),
+                ("gender", "VARCHAR(20) NULL"),
+            ):
                 cursor.execute(f"SHOW COLUMNS FROM users LIKE '{column}'")
                 if not cursor.fetchone():
-                    cursor.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
-            cursor.execute(
-                """
+                    cursor.execute(
+                        f"ALTER TABLE users ADD COLUMN {column} {definition}"
+                    )
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_app_states (
                     user_id VARCHAR(64) PRIMARY KEY,
                     version INT NOT NULL DEFAULT 1,
@@ -72,10 +82,8 @@ def init_db() -> None:
                     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                         ON UPDATE CURRENT_TIMESTAMP
                 )
-                """
-            )
-            cursor.execute(
-                """
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_follows (
                     follower_id VARCHAR(64) NOT NULL,
                     followed_id VARCHAR(64) NOT NULL,
@@ -83,10 +91,8 @@ def init_db() -> None:
                     PRIMARY KEY (follower_id, followed_id),
                     INDEX idx_user_follows_followed (followed_id)
                 )
-                """
-            )
-            cursor.execute(
-                """
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_achievements (
                     user_id VARCHAR(64) NOT NULL,
                     badge_id VARCHAR(64) NOT NULL,
@@ -95,10 +101,8 @@ def init_db() -> None:
                     PRIMARY KEY (user_id, badge_id),
                     INDEX idx_user_achievements_unlocked (user_id, unlocked_at)
                 )
-                """
-            )
-            cursor.execute(
-                """
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS point_transactions (
                     user_id VARCHAR(64) NOT NULL,
                     reason VARCHAR(120) NOT NULL,
@@ -107,10 +111,8 @@ def init_db() -> None:
                     PRIMARY KEY (user_id, reason),
                     INDEX idx_point_transactions_created (user_id, created_at)
                 )
-                """
-            )
-            cursor.execute(
-                """
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS challenges (
                     id VARCHAR(64) PRIMARY KEY,
                     user_id VARCHAR(64) NOT NULL,
@@ -133,5 +135,4 @@ def init_db() -> None:
                     INDEX idx_challenges_visibility_created (visibility, created_at),
                     CONSTRAINT fk_challenges_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
-                """
-            )
+                """)

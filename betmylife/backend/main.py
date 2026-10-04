@@ -2,7 +2,6 @@ import os
 import json
 import hashlib
 import hmac
-import json
 import secrets
 import uuid
 from typing import Literal
@@ -12,14 +11,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
+
 try:
     from .challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 except ImportError:
     from challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 try:
-    from .db import get_connection, init_db
-except ImportError:  # Supports `uvicorn main:app` from the backend directory.
-    from db import get_connection, init_db
+    from .dbv2 import get_connection, init_db
+except ImportError:  # Supports `uvicorn mainv2:app` from the backend directory.
+    from dbv2 import get_connection, init_db
 
 load_dotenv()
 cors_origins = [
@@ -40,20 +40,39 @@ app.add_middleware(
 )
 
 ProofMethod = Literal[
-    "photo", "live_camera", "before_after", "timer", "focus_session",
-    "location", "duration", "gps_route", "distance", "motion_session",
-    "ai_quiz", "text_artifact", "word_count", "friend_witness",
-    "checkpoint", "qr_checkin", "screen_time", "health_steps",
-    "health_sleep", "health_workout", "self_report",
+    "photo",
+    "live_camera",
+    "before_after",
+    "timer",
+    "focus_session",
+    "location",
+    "duration",
+    "gps_route",
+    "distance",
+    "motion_session",
+    "ai_quiz",
+    "text_artifact",
+    "word_count",
+    "friend_witness",
+    "checkpoint",
+    "qr_checkin",
+    "screen_time",
+    "health_steps",
+    "health_sleep",
+    "health_workout",
+    "self_report",
 ]
+
 
 class TranslateRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     source_language: str = "en"
     target_language: str = "ja"
 
+
 class TranslateResponse(BaseModel):
     translated_text: str
+
 
 class ProofRequirement(BaseModel):
     id: str
@@ -62,6 +81,7 @@ class ProofRequirement(BaseModel):
     instructions: str
     required: bool = True
     config: dict = Field(default_factory=dict)
+
 
 class ProofPlanResponse(BaseModel):
     category: str
@@ -72,6 +92,7 @@ class ProofPlanResponse(BaseModel):
     explanation: str
     verification_strength: Literal["basic", "medium", "strong"]
     fallback_allowed: bool = True
+
 
 class ProofPlanRequest(BaseModel):
     title: str
@@ -106,13 +127,17 @@ class ProfileUpdateRequest(BaseModel):
 
 
 class AuthRequest(BaseModel):
-    username: str = Field(min_length=3, max_length=40, pattern=r"^[A-Za-z0-9_]+$")
+    username: str = Field(
+        min_length=3, max_length=40, pattern=r"^[A-Za-z0-9_]+$"
+    )
     password: str = Field(min_length=4, max_length=128)
 
 
 def hash_password(password: str, salt: str | None = None) -> str:
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120_000).hex()
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt.encode(), 120_000
+    ).hex()
     return f"{salt}${digest}"
 
 
@@ -121,7 +146,9 @@ def verify_password(password: str, stored: str) -> bool:
         salt, expected = stored.split("$", 1)
     except ValueError:
         return False
-    actual = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120_000).hex()
+    actual = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), salt.encode(), 120_000
+    ).hex()
     return hmac.compare_digest(actual, expected)
 
 
@@ -179,6 +206,7 @@ class ChallengeResponse(ChallengeCreateRequest):
 def is_profile_complete(user: dict) -> bool:
     return bool(user.get("nickname") and user.get("age") and user.get("gender"))
 
+
 SYSTEM_PROMPT = """
 You are Predict My Life's verification recipe planner.
 Return only JSON matching the requested schema. Self report is the last resort.
@@ -229,30 +257,40 @@ def _state_data(value: object) -> dict:
 def _timestamp(value: object) -> str:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
+
 def gemini_client() -> genai.Client:
     if not os.getenv("GEMINI_API_KEY"):
         raise RuntimeError("GEMINI_API_KEY is not configured")
     return genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get('/challenge-analyze/schema')
+@app.get("/challenge-analyze/schema")
 def challenge_schema():
     return AnalyzeResponse.model_json_schema()
 
 
-@app.post('/challenge-analyze', response_model=AnalyzeResponse)
+@app.post("/challenge-analyze", response_model=AnalyzeResponse)
 def challenge_analyze(request: AnalyzeRequest):
-    print('[challenge-nlp] requested ' + request.model_dump_json(), flush=True)
+    print("[challenge-nlp] requested " + request.model_dump_json(), flush=True)
     try:
         result = analyze(request)
     except HTTPException as error:
-        print('[challenge-nlp] failed ' + json.dumps(error.detail, ensure_ascii=False), flush=True)
+        print(
+            "[challenge-nlp] failed "
+            + json.dumps(error.detail, ensure_ascii=False),
+            flush=True,
+        )
         raise
-    print('[challenge-nlp] analyzed ' + json.dumps(result, ensure_ascii=False, indent=2), flush=True)
+    print(
+        "[challenge-nlp] analyzed "
+        + json.dumps(result, ensure_ascii=False, indent=2),
+        flush=True,
+    )
     return result
 
 
@@ -271,33 +309,61 @@ def register(request: AuthRequest) -> AuthResponse:
             with connection.cursor() as cursor:
                 cursor.execute(
                     "INSERT INTO users (id, username, display_name, password_hash) VALUES (%s, %s, %s, %s)",
-                    (user_id, request.username, request.username, hash_password(request.password)),
+                    (
+                        user_id,
+                        request.username,
+                        request.username,
+                        hash_password(request.password),
+                    ),
                 )
     except Exception as error:
         if "Duplicate" in str(error):
-            raise HTTPException(status_code=409, detail="Username is already taken") from error
+            raise HTTPException(
+                status_code=409, detail="Username is already taken"
+            ) from error
         raise
-    return AuthResponse(user_id=user_id, username=request.username, profile_complete=False)
+    return AuthResponse(
+        user_id=user_id, username=request.username, profile_complete=False
+    )
 
 
 @app.post("/auth/login", response_model=AuthResponse)
 def login(request: AuthRequest) -> AuthResponse:
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id, username, password_hash, nickname, age, gender FROM users WHERE username = %s", (request.username,))
+            cursor.execute(
+                "SELECT id, username, password_hash, nickname, age, gender FROM users WHERE username = %s",
+                (request.username,),
+            )
             user = cursor.fetchone()
-    if user is None or not verify_password(request.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    return AuthResponse(user_id=user["id"], username=user["username"], profile_complete=is_profile_complete(user))
+    if user is None or not verify_password(
+        request.password, user["password_hash"]
+    ):
+        raise HTTPException(
+            status_code=401, detail="Invalid username or password"
+        )
+    return AuthResponse(
+        user_id=user["id"],
+        username=user["username"],
+        profile_complete=is_profile_complete(user),
+    )
 
 
 @app.patch("/users/{user_id}/profile/setup", response_model=ProfileSetupRequest)
-def setup_profile(user_id: str, request: ProfileSetupRequest) -> ProfileSetupRequest:
+def setup_profile(
+    user_id: str, request: ProfileSetupRequest
+) -> ProfileSetupRequest:
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "UPDATE users SET nickname = %s, age = %s, gender = %s, display_name = %s WHERE id = %s",
-                (request.nickname, request.age, request.gender, request.nickname, user_id),
+                (
+                    request.nickname,
+                    request.age,
+                    request.gender,
+                    request.nickname,
+                    user_id,
+                ),
             )
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Profile not found")
@@ -316,7 +382,9 @@ def get_profile(user_id: str) -> ProfileResponse:
 
 
 @app.patch("/users/{user_id}/profile", response_model=ProfileResponse)
-def update_profile(user_id: str, request: ProfileUpdateRequest) -> ProfileResponse:
+def update_profile(
+    user_id: str, request: ProfileUpdateRequest
+) -> ProfileResponse:
     updates = request.model_dump(exclude_none=True)
     if not updates:
         return get_profile(user_id)
@@ -324,7 +392,9 @@ def update_profile(user_id: str, request: ProfileUpdateRequest) -> ProfileRespon
     values = [*updates.values(), user_id]
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {assignments} WHERE id = %s", values)
+            cursor.execute(
+                f"UPDATE users SET {assignments} WHERE id = %s", values
+            )
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Profile not found")
     return get_profile(user_id)
@@ -356,87 +426,147 @@ def save_app_state(user_id: str, request: AppStateRequest) -> dict[str, str]:
     with get_connection() as connection:
         connection.begin()
         try:
-          with connection.cursor() as cursor:
-            cursor.execute("SELECT id, points FROM users WHERE id = %s FOR UPDATE", (user_id,))
-            user = cursor.fetchone()
-            if user is None:
-                raise HTTPException(status_code=404, detail="User not found")
-            cursor.execute("SELECT state_json FROM user_app_states WHERE user_id = %s FOR UPDATE", (user_id,))
-            cursor.fetchone()
-            cursor.execute("SELECT badge_id, unlocked_at, reward_points_granted FROM user_achievements WHERE user_id = %s", (user_id,))
-            badge_rows = cursor.fetchall()
-            cursor.execute("SELECT reason, amount, created_at FROM point_transactions WHERE user_id = %s", (user_id,))
-            point_rows = cursor.fetchall()
-            unlocks = dict(data.get("badgeUnlocks") or {})
-            transactions = list(data.get("transactions") or [])
-            transaction_ids = {item.get("id") for item in transactions if isinstance(item, dict)}
-            wallet = data.get("wallet")
-            wallet = wallet if isinstance(wallet, int) else user["points"]
-            for row in badge_rows:
-                badge_id = row["badge_id"]
-                unlocks[badge_id] = {
-                    "unlockedAt": unlocks.get(badge_id, {}).get("unlockedAt", _timestamp(row["unlocked_at"])),
-                    "rewardPointsGranted": row["reward_points_granted"],
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, points FROM users WHERE id = %s FOR UPDATE",
+                    (user_id,),
+                )
+                user = cursor.fetchone()
+                if user is None:
+                    raise HTTPException(
+                        status_code=404, detail="User not found"
+                    )
+                cursor.execute(
+                    "SELECT state_json FROM user_app_states WHERE user_id = %s FOR UPDATE",
+                    (user_id,),
+                )
+                cursor.fetchone()
+                cursor.execute(
+                    "SELECT badge_id, unlocked_at, reward_points_granted FROM user_achievements WHERE user_id = %s",
+                    (user_id,),
+                )
+                badge_rows = cursor.fetchall()
+                cursor.execute(
+                    "SELECT reason, amount, created_at FROM point_transactions WHERE user_id = %s",
+                    (user_id,),
+                )
+                point_rows = cursor.fetchall()
+                unlocks = dict(data.get("badgeUnlocks") or {})
+                transactions = list(data.get("transactions") or [])
+                transaction_ids = {
+                    item.get("id")
+                    for item in transactions
+                    if isinstance(item, dict)
                 }
-            for row in point_rows:
-                if row["reason"] not in transaction_ids:
-                    transactions.append({
-                        "id": row["reason"], "reason": row["reason"], "amount": row["amount"],
-                        "createdAt": _timestamp(row["created_at"]),
-                    })
-            # The transaction ledger restores history. The wallet snapshot and
-            # users.points already include those transactions; summing them here
-            # would duplicate badge rewards on the next state save.
-            data["badgeUnlocks"] = unlocks
-            data["transactions"] = transactions
-            data["wallet"] = wallet
-            data["pointsBalance"] = wallet
-            database_badges = {row["badge_id"] for row in badge_rows}
-            data["pendingBadgeClaims"] = [badge_id for badge_id in (data.get("pendingBadgeClaims") or []) if badge_id not in database_badges]
-            serialized_state = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-            if len(serialized_state.encode("utf-8")) > 1_000_000:
-                raise HTTPException(status_code=413, detail="App state is too large")
-            cursor.execute(
-                """
+                wallet = data.get("wallet")
+                wallet = wallet if isinstance(wallet, int) else user["points"]
+                for row in badge_rows:
+                    badge_id = row["badge_id"]
+                    unlocks[badge_id] = {
+                        "unlockedAt": unlocks.get(badge_id, {}).get(
+                            "unlockedAt", _timestamp(row["unlocked_at"])
+                        ),
+                        "rewardPointsGranted": row["reward_points_granted"],
+                    }
+                for row in point_rows:
+                    if row["reason"] not in transaction_ids:
+                        transactions.append(
+                            {
+                                "id": row["reason"],
+                                "reason": row["reason"],
+                                "amount": row["amount"],
+                                "createdAt": _timestamp(row["created_at"]),
+                            }
+                        )
+                # The transaction ledger restores history. The wallet snapshot and
+                # users.points already include those transactions; summing them here
+                # would duplicate badge rewards on the next state save.
+                data["badgeUnlocks"] = unlocks
+                data["transactions"] = transactions
+                data["wallet"] = wallet
+                data["pointsBalance"] = wallet
+                database_badges = {row["badge_id"] for row in badge_rows}
+                data["pendingBadgeClaims"] = [
+                    badge_id
+                    for badge_id in (data.get("pendingBadgeClaims") or [])
+                    if badge_id not in database_badges
+                ]
+                serialized_state = json.dumps(
+                    data, separators=(",", ":"), ensure_ascii=False
+                )
+                if len(serialized_state.encode("utf-8")) > 1_000_000:
+                    raise HTTPException(
+                        status_code=413, detail="App state is too large"
+                    )
+                cursor.execute(
+                    """
                 INSERT INTO user_app_states (user_id, version, state_json)
                 VALUES (%s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     version = VALUES(version),
                     state_json = VALUES(state_json)
                 """,
-                (user_id, request.version, serialized_state),
-            )
-            cursor.execute("UPDATE users SET points = %s WHERE id = %s", (wallet, user_id))
-          connection.commit()
+                    (user_id, request.version, serialized_state),
+                )
+                cursor.execute(
+                    "UPDATE users SET points = %s WHERE id = %s",
+                    (wallet, user_id),
+                )
+            connection.commit()
         except Exception:
-          connection.rollback()
-          raise
+            connection.rollback()
+            raise
     return {"status": "saved"}
-
 
 
 def _challenge_response(row: dict) -> ChallengeResponse:
     return ChallengeResponse(
-        id=row["id"], user_id=row["user_id"], title=row["title"],
-        category=row["category"], difficulty=row["difficulty"], confidence=row["confidence"],
-        visibility=row["visibility"], deadline_at=row["deadline_at"].isoformat(),
-        deadline_label=row["deadline_label"], probability=float(row["probability"]),
-        yes_odds=float(row["yes_odds"]), no_odds=float(row["no_odds"]),
-        analysis=json.loads(row["analysis_json"]) if isinstance(row["analysis_json"], str) else row["analysis_json"],
-        proof_plan=json.loads(row["proof_plan_json"]) if isinstance(row["proof_plan_json"], str) else row["proof_plan_json"],
+        id=row["id"],
+        user_id=row["user_id"],
+        title=row["title"],
+        category=row["category"],
+        difficulty=row["difficulty"],
+        confidence=row["confidence"],
+        visibility=row["visibility"],
+        deadline_at=row["deadline_at"].isoformat(),
+        deadline_label=row["deadline_label"],
+        probability=float(row["probability"]),
+        yes_odds=float(row["yes_odds"]),
+        no_odds=float(row["no_odds"]),
+        analysis=(
+            json.loads(row["analysis_json"])
+            if isinstance(row["analysis_json"], str)
+            else row["analysis_json"]
+        ),
+        proof_plan=(
+            json.loads(row["proof_plan_json"])
+            if isinstance(row["proof_plan_json"], str)
+            else row["proof_plan_json"]
+        ),
         created_at=row["created_at"].isoformat(),
     )
 
 
-@app.post("/users/{user_id}/challenges", response_model=ChallengeResponse, status_code=201)
-def create_challenge(user_id: str, request: ChallengeCreateRequest) -> ChallengeResponse:
+@app.post(
+    "/users/{user_id}/challenges",
+    response_model=ChallengeResponse,
+    status_code=201,
+)
+def create_challenge(
+    user_id: str, request: ChallengeCreateRequest
+) -> ChallengeResponse:
     challenge_id = str(uuid.uuid4())
     try:
         deadline_at = request.deadline_at.replace("Z", "+00:00")
         from datetime import datetime
-        parsed_deadline = datetime.fromisoformat(deadline_at).replace(tzinfo=None)
+
+        parsed_deadline = datetime.fromisoformat(deadline_at).replace(
+            tzinfo=None
+        )
     except ValueError as error:
-        raise HTTPException(status_code=422, detail="deadline_at must be an ISO datetime") from error
+        raise HTTPException(
+            status_code=422, detail="deadline_at must be an ISO datetime"
+        ) from error
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
@@ -448,18 +578,41 @@ def create_challenge(user_id: str, request: ChallengeCreateRequest) -> Challenge
                  deadline_at, deadline_label, probability, yes_odds, no_odds,
                  analysis_json, proof_plan_json)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (challenge_id, user_id, request.title.strip(), request.category, request.difficulty,
-                 request.confidence, request.visibility, parsed_deadline, request.deadline_label,
-                 request.probability, request.yes_odds, request.no_odds,
-                 json.dumps(request.analysis, ensure_ascii=False) if request.analysis is not None else None,
-                 json.dumps(request.proof_plan, ensure_ascii=False) if request.proof_plan is not None else None),
+                (
+                    challenge_id,
+                    user_id,
+                    request.title.strip(),
+                    request.category,
+                    request.difficulty,
+                    request.confidence,
+                    request.visibility,
+                    parsed_deadline,
+                    request.deadline_label,
+                    request.probability,
+                    request.yes_odds,
+                    request.no_odds,
+                    (
+                        json.dumps(request.analysis, ensure_ascii=False)
+                        if request.analysis is not None
+                        else None
+                    ),
+                    (
+                        json.dumps(request.proof_plan, ensure_ascii=False)
+                        if request.proof_plan is not None
+                        else None
+                    ),
+                ),
             )
-            cursor.execute("SELECT * FROM challenges WHERE id = %s", (challenge_id,))
+            cursor.execute(
+                "SELECT * FROM challenges WHERE id = %s", (challenge_id,)
+            )
             return _challenge_response(cursor.fetchone())
 
 
 @app.get("/users/{user_id}/challenges", response_model=list[ChallengeResponse])
-def list_challenges(user_id: str, limit: int = 50, offset: int = 0) -> list[ChallengeResponse]:
+def list_challenges(
+    user_id: str, limit: int = 50, offset: int = 0
+) -> list[ChallengeResponse]:
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
     with get_connection() as connection:
@@ -467,7 +620,10 @@ def list_challenges(user_id: str, limit: int = 50, offset: int = 0) -> list[Chal
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
-            cursor.execute("SELECT * FROM challenges WHERE user_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s", (user_id, limit, offset))
+            cursor.execute(
+                "SELECT * FROM challenges WHERE user_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                (user_id, limit, offset),
+            )
             return [_challenge_response(row) for row in cursor.fetchall()]
 
 
@@ -483,10 +639,18 @@ def get_user_badges(user_id: str) -> dict[str, list[dict]]:
                 (user_id,),
             )
             rows = cursor.fetchall()
-    return {"badges": [{**row, "unlocked_at": _timestamp(row["unlocked_at"])} for row in rows]}
+    return {
+        "badges": [
+            {**row, "unlocked_at": _timestamp(row["unlocked_at"])}
+            for row in rows
+        ]
+    }
 
 
-@app.post("/users/{user_id}/badges/{badge_id}/claim", response_model=BadgeClaimResponse)
+@app.post(
+    "/users/{user_id}/badges/{badge_id}/claim",
+    response_model=BadgeClaimResponse,
+)
 def claim_badge(user_id: str, badge_id: str) -> BadgeClaimResponse:
     reward = BADGE_REWARD_POINTS.get(badge_id)
     if reward is None:
@@ -496,48 +660,86 @@ def claim_badge(user_id: str, badge_id: str) -> BadgeClaimResponse:
     with get_connection() as connection:
         connection.begin()
         try:
-          with connection.cursor() as cursor:
-            cursor.execute("SELECT id, points FROM users WHERE id = %s FOR UPDATE", (user_id,))
-            user = cursor.fetchone()
-            if user is None:
-                raise HTTPException(status_code=404, detail="User not found")
-            cursor.execute(
-                "INSERT IGNORE INTO user_achievements (user_id, badge_id, reward_points_granted) VALUES (%s, %s, %s)",
-                (user_id, badge_id, reward),
-            )
-            created = cursor.rowcount == 1
-            reason = f"BADGE_REWARD:{badge_id}"
-            if created:
+            with connection.cursor() as cursor:
                 cursor.execute(
-                    "INSERT IGNORE INTO point_transactions (user_id, reason, amount) VALUES (%s, %s, %s)",
-                    (user_id, reason, reward),
+                    "SELECT id, points FROM users WHERE id = %s FOR UPDATE",
+                    (user_id,),
                 )
-                reward_granted = cursor.rowcount == 1
-            cursor.execute(
-                "SELECT badge_id, unlocked_at, reward_points_granted FROM user_achievements WHERE user_id = %s AND badge_id = %s",
-                (user_id, badge_id),
-            )
-            badge = cursor.fetchone()
-            cursor.execute("SELECT state_json FROM user_app_states WHERE user_id = %s FOR UPDATE", (user_id,))
-            saved = cursor.fetchone()
-            data = _state_data(saved["state_json"]) if saved else {}
-            wallet = max(int(user["points"] or 0), int(data.get("wallet", 0) or 0))
-            if reward_granted:
-                wallet += reward
-                cursor.execute("UPDATE users SET points = %s WHERE id = %s", (wallet, user_id))
-            unlocks = dict(data.get("badgeUnlocks") or {})
-            unlocks[badge_id] = {"unlockedAt": _timestamp(badge["unlocked_at"]), "rewardPointsGranted": badge["reward_points_granted"]}
-            data["badgeUnlocks"] = unlocks
-            transactions = list(data.get("transactions") or [])
-            if reward_granted and not any(isinstance(item, dict) and item.get("id") == reason for item in transactions):
-                transactions.append({"id": reason, "reason": reason, "amount": reward, "createdAt": _timestamp(badge["unlocked_at"])})
-            data["transactions"] = transactions
-            data["wallet"] = wallet
-            data["pointsBalance"] = wallet
-            data["pendingBadgeClaims"] = [item for item in (data.get("pendingBadgeClaims") or []) if item != badge_id]
-            if saved:
-                cursor.execute("UPDATE user_app_states SET state_json = %s WHERE user_id = %s", (json.dumps(data, separators=(",", ":"), ensure_ascii=False), user_id))
-            connection.commit()
+                user = cursor.fetchone()
+                if user is None:
+                    raise HTTPException(
+                        status_code=404, detail="User not found"
+                    )
+                cursor.execute(
+                    "INSERT IGNORE INTO user_achievements (user_id, badge_id, reward_points_granted) VALUES (%s, %s, %s)",
+                    (user_id, badge_id, reward),
+                )
+                created = cursor.rowcount == 1
+                reason = f"BADGE_REWARD:{badge_id}"
+                if created:
+                    cursor.execute(
+                        "INSERT IGNORE INTO point_transactions (user_id, reason, amount) VALUES (%s, %s, %s)",
+                        (user_id, reason, reward),
+                    )
+                    reward_granted = cursor.rowcount == 1
+                cursor.execute(
+                    "SELECT badge_id, unlocked_at, reward_points_granted FROM user_achievements WHERE user_id = %s AND badge_id = %s",
+                    (user_id, badge_id),
+                )
+                badge = cursor.fetchone()
+                cursor.execute(
+                    "SELECT state_json FROM user_app_states WHERE user_id = %s FOR UPDATE",
+                    (user_id,),
+                )
+                saved = cursor.fetchone()
+                data = _state_data(saved["state_json"]) if saved else {}
+                wallet = max(
+                    int(user["points"] or 0), int(data.get("wallet", 0) or 0)
+                )
+                if reward_granted:
+                    wallet += reward
+                    cursor.execute(
+                        "UPDATE users SET points = %s WHERE id = %s",
+                        (wallet, user_id),
+                    )
+                unlocks = dict(data.get("badgeUnlocks") or {})
+                unlocks[badge_id] = {
+                    "unlockedAt": _timestamp(badge["unlocked_at"]),
+                    "rewardPointsGranted": badge["reward_points_granted"],
+                }
+                data["badgeUnlocks"] = unlocks
+                transactions = list(data.get("transactions") or [])
+                if reward_granted and not any(
+                    isinstance(item, dict) and item.get("id") == reason
+                    for item in transactions
+                ):
+                    transactions.append(
+                        {
+                            "id": reason,
+                            "reason": reason,
+                            "amount": reward,
+                            "createdAt": _timestamp(badge["unlocked_at"]),
+                        }
+                    )
+                data["transactions"] = transactions
+                data["wallet"] = wallet
+                data["pointsBalance"] = wallet
+                data["pendingBadgeClaims"] = [
+                    item
+                    for item in (data.get("pendingBadgeClaims") or [])
+                    if item != badge_id
+                ]
+                if saved:
+                    cursor.execute(
+                        "UPDATE user_app_states SET state_json = %s WHERE user_id = %s",
+                        (
+                            json.dumps(
+                                data, separators=(",", ":"), ensure_ascii=False
+                            ),
+                            user_id,
+                        ),
+                    )
+                connection.commit()
         except Exception:
             connection.rollback()
             raise
@@ -549,7 +751,6 @@ def claim_badge(user_id: str, badge_id: str) -> BadgeClaimResponse:
         created=created,
         wallet=wallet,
     )
-
 
 
 @app.get("/users/{user_id}/following", response_model=FollowingResponse)
@@ -570,7 +771,9 @@ def get_following(user_id: str) -> FollowingResponse:
 @app.put("/users/{user_id}/following/{followed_id}", status_code=204)
 def follow_user(user_id: str, followed_id: str) -> None:
     if user_id == followed_id:
-        raise HTTPException(status_code=400, detail="You cannot follow yourself")
+        raise HTTPException(
+            status_code=400, detail="You cannot follow yourself"
+        )
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
@@ -594,6 +797,7 @@ def unfollow_user(user_id: str, followed_id: str) -> None:
                 (user_id, followed_id),
             )
 
+
 @app.post("/translate", response_model=TranslateResponse)
 def translate_text(request: TranslateRequest) -> TranslateResponse:
     try:
@@ -608,7 +812,10 @@ def translate_text(request: TranslateRequest) -> TranslateResponse:
         )
         return TranslateResponse(translated_text=response.output_text.strip())
     except Exception as error:
-        raise HTTPException(status_code=503, detail="Translation service unavailable") from error
+        raise HTTPException(
+            status_code=503, detail="Translation service unavailable"
+        ) from error
+
 
 @app.post("/proof-plan", response_model=ProofPlanResponse)
 def proof_plan(request: ProofPlanRequest) -> ProofPlanResponse:
@@ -630,4 +837,6 @@ def proof_plan(request: ProofPlanRequest) -> ProofPlanResponse:
         )
         return ProofPlanResponse.model_validate_json(response.output_text)
     except Exception as error:
-        raise HTTPException(status_code=503, detail="Proof planner unavailable") from error
+        raise HTTPException(
+            status_code=503, detail="Proof planner unavailable"
+        ) from error
