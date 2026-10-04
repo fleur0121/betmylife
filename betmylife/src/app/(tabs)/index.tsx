@@ -196,7 +196,7 @@ export default function Home() {
       (filter === "Public"
         ? item.visibility === "public"
         : filter === "Friends"
-          ? state.friendIds.includes(item.ownerId ?? "")
+          ? state.followingIds.includes(item.ownerId ?? "")
           : myPickedChallengeIds.has(item.id)),
   );
   const dateStrip = Array.from({ length: 21 }, (_, index) => {

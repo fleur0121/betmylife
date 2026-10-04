@@ -85,6 +85,15 @@ export default function UserProfile() {
       .finally(() => {
         if (!cancelled) setPostsLoading(false);
       });
+    fetch(`${API_URL}/users/${state.authUserId}/friend-requests/sent`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load friend request status.");
+        return response.json() as Promise<{ recipient_id: string }[]>;
+      })
+      .then((requests) => {
+        if (!cancelled) setRequestSent(requests.some((request) => request.recipient_id === id));
+      })
+      .catch(() => undefined);
     return () => { cancelled = true; };
   }, [id, state.authUserId, state.followingIds]);
 

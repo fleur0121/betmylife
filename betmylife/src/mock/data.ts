@@ -321,26 +321,3 @@ export const initialCosmetics: Record<CosmeticSlot, string> = {
   Background: "Soft Lavender",
   Title: "AI Slayer",
 };
-export const categoryStats = [
-  { name: "Study", asset: "iconStudy", value: 65 },
-  { name: "Fitness", asset: "iconFitness", value: 80 },
-  { name: "Lifestyle", asset: "iconLifestyle", value: 58 },
-  { name: "Wake Up", asset: "iconStreak", value: 45 },
-] as const;
-export const insights = [
-  {
-    asset: "iconFitness",
-    title: "Fitness is your superpower",
-    text: "Your fitness challenges have the highest completion rate.",
-  },
-  {
-    asset: "stickerBrighterDays",
-    title: "Start the week strong",
-    text: "You are more successful earlier in the week. Save a big goal for Monday.",
-  },
-  {
-    asset: "iconAiInsight",
-    title: "A little optimistic? We love it.",
-    text: "Your confidence is usually slightly higher than your actual completion rate.",
-  },
-] as const;

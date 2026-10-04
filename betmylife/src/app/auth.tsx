@@ -58,6 +58,7 @@ export default function AuthScreen() {
         <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="user name" placeholderTextColor={c.muted} style={styles.input} />
         <Text style={styles.label}>PASSWORD</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="at least 4 characters" placeholderTextColor={c.muted} style={styles.input} />
+        {mode === "register" && <Text style={styles.bonus}>New accounts start with 1,000 points.</Text>}
         {error ? <Text style={styles.error}>{error}</Text> : null}
         <Button label={loading ? "Connecting…" : mode === "register" ? "Create my account" : "Log in"} onPress={submit} disabled={loading} />
         {loading && <ActivityIndicator color={c.primary} style={styles.loader} />}
@@ -81,6 +82,7 @@ const styles = StyleSheet.create({
   label: { color: c.muted, fontSize: 9, fontWeight: "900", letterSpacing: 0.8, marginTop: 8 },
   input: { color: c.text, borderBottomWidth: 1, borderBottomColor: c.border, paddingVertical: 11, fontSize: 15, marginBottom: 10 },
   error: { color: "#C44D5D", fontSize: 11, marginBottom: 10 },
+  bonus: { color: c.green, fontSize: 12, fontWeight: "800", marginBottom: 8 },
   loader: { marginTop: 10 },
   secondaryAction: { marginTop: 4, paddingVertical: 8 },
   switch: { color: c.primary, textAlign: "center", fontSize: 11, fontWeight: "800", marginTop: 16 },

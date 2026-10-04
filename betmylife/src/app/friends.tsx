@@ -9,8 +9,8 @@ import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
 import { useAppState } from "@/state/app-state";
 import { encodeFriendQR, normalizeFriendId, parseFriendQR } from "@/utils/friend-id";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 type UserSummary = {
@@ -36,7 +36,7 @@ function asUserSummary(value: Partial<UserSummary> & { id: string; username?: st
 }
 
 export default function Friends() {
-  const { state } = useAppState();
+  const { state, dispatch } = useAppState();
   const { t } = useLanguage();
   const [profile, setProfile] = useState<UserSummary | null>(null);
   const [mode, setMode] = useState("By ID");
@@ -47,25 +47,40 @@ export default function Friends() {
   const [busy, setBusy] = useState(false);
   const [requestSent, setRequestSent] = useState<string[]>([]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!state.authUserId) return;
     let cancelled = false;
-    fetch(`${API_URL}/users/${state.authUserId}/profile`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((value) => {
-        if (!cancelled && value) setProfile(asUserSummary(value));
-      })
-      .catch(() => undefined);
-    fetch(`${API_URL}/users/${state.authUserId}/following/details`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((value) => {
-        if (!cancelled && value) setFriends(value as UserSummary[]);
-      })
-      .catch(() => {
-        if (!cancelled) setMessage("Could not load your friends.");
-      });
+    const userId = state.authUserId;
+    async function loadFriendData() {
+      try {
+        const [profileResponse, friendsResponse, sentResponse] = await Promise.all([
+          fetch(`${API_URL}/users/${userId}/profile`),
+          fetch(`${API_URL}/users/${userId}/following/details`),
+          fetch(`${API_URL}/users/${userId}/friend-requests/sent`),
+        ]);
+        const [profileBody, friendsBody, sentBody] = await Promise.all([
+          profileResponse.json(), friendsResponse.json(), sentResponse.json(),
+        ]);
+        if (!profileResponse.ok || !friendsResponse.ok || !sentResponse.ok) {
+          throw new Error("Could not load your friend data.");
+        }
+        if (cancelled) return;
+        setProfile(asUserSummary(profileBody));
+        const followedUsers = Array.isArray(friendsBody) ? friendsBody as UserSummary[] : [];
+        setFriends(followedUsers);
+        dispatch({ type: "set-following-ids", ids: followedUsers.map((friend) => friend.id) });
+        setRequestSent(Array.isArray(sentBody)
+          ? sentBody.map((request: { recipient_id: string }) => request.recipient_id)
+          : []);
+      } catch (error) {
+        if (!cancelled) {
+          setMessage(error instanceof Error ? error.message : "Could not load your friends.");
+        }
+      }
+    }
+    void loadFriendData();
     return () => { cancelled = true; };
-  }, [state.authUserId]);
+  }, [dispatch, state.authUserId]));
 
   async function search(id: string | null) {
     setCandidate(null);
@@ -96,9 +111,14 @@ export default function Friends() {
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch(`${API_URL}/users/${state.authUserId}/friend-requests/${candidate.id}`, { method: "POST" });
+      const response = await fetch(`${API_URL}/users/${state.authUserId}/friend-requests/${encodeURIComponent(candidate.id)}`, { method: "POST" });
       if (!response.ok) {
         const detail = await response.json().catch(() => null);
+        if (response.status === 409 && /already sent/i.test(detail?.detail ?? "")) {
+          setRequestSent((current) => [...new Set([...current, candidate.id])]);
+          setMessage("Friend request already sent.");
+          return;
+        }
         throw new Error(detail?.detail || "Could not send friend request.");
       }
       setRequestSent((current) => [...new Set([...current, candidate.id])]);

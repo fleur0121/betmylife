@@ -8,9 +8,9 @@ import { useAppState } from "@/state/app-state";
 import { API_URL } from "@/constants/api";
 
 const genders = [
-  { value: "male", label: "男" },
-  { value: "female", label: "女" },
-  { value: "other", label: "その他" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Others" },
 ] as const;
 
 export default function ProfileSetup() {

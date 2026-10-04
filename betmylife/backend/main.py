@@ -215,6 +215,15 @@ class FriendRequestResponse(BaseModel):
     created_at: str
 
 
+class SentFriendRequestResponse(BaseModel):
+    id: str
+    recipient_id: str
+    recipient_name: str
+    recipient_username: str
+    status: Literal["pending"]
+    created_at: str
+
+
 class FriendRequestDecision(BaseModel):
     decision: Literal["accept", "decline"]
 
@@ -301,6 +310,7 @@ BADGE_REWARD_POINTS = {
     "points_collector": 250,
     "reward_hunter": 150,
 }
+WELCOME_BONUS_POINTS = 1000
 
 
 def _state_data(value: object) -> dict:
@@ -362,18 +372,49 @@ def initialize_database() -> dict[str, str]:
 @app.post("/auth/register", response_model=AuthResponse, status_code=201)
 def register(request: AuthRequest) -> AuthResponse:
     user_id = str(uuid.uuid4())
+    welcome_bonus_at = datetime.now(timezone.utc).isoformat()
+    welcome_transaction = {
+        "id": "WELCOME_BONUS",
+        "reason": "WELCOME_BONUS",
+        "amount": WELCOME_BONUS_POINTS,
+        "createdAt": welcome_bonus_at,
+    }
+    initial_state = json.dumps(
+        {
+            "wallet": WELCOME_BONUS_POINTS,
+            "pointsBalance": WELCOME_BONUS_POINTS,
+            "transactions": [welcome_transaction],
+        },
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
     try:
         with get_connection() as connection:
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "INSERT INTO users (id, username, display_name, password_hash) VALUES (%s, %s, %s, %s)",
-                    (
-                        user_id,
-                        request.username,
-                        request.username,
-                        hash_password(request.password),
-                    ),
-                )
+            connection.begin()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "INSERT INTO users (id, username, display_name, password_hash, points) VALUES (%s, %s, %s, %s, %s)",
+                        (
+                            user_id,
+                            request.username,
+                            request.username,
+                            hash_password(request.password),
+                            WELCOME_BONUS_POINTS,
+                        ),
+                    )
+                    cursor.execute(
+                        "INSERT INTO point_transactions (user_id, reason, amount) VALUES (%s, %s, %s)",
+                        (user_id, "WELCOME_BONUS", WELCOME_BONUS_POINTS),
+                    )
+                    cursor.execute(
+                        "INSERT INTO user_app_states (user_id, version, state_json) VALUES (%s, %s, %s)",
+                        (user_id, 2, initial_state),
+                    )
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
     except Exception as error:
         if "Duplicate" in str(error):
             raise HTTPException(
@@ -744,7 +785,7 @@ def list_challenges(
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
-            can_view_private = viewer_id is None or viewer_id == user_id
+            can_view_private = viewer_id == user_id
             if viewer_id and viewer_id != user_id:
                 cursor.execute(
                     "SELECT 1 FROM user_follows WHERE follower_id = %s AND followed_id = %s",
@@ -766,7 +807,7 @@ def list_challenges(
 def list_public_challenges(
     viewer_id: str | None = None, limit: int = 50, offset: int = 0
 ) -> list[ChallengeResponse]:
-    """Return public challenges, plus the viewer's own friends-only posts."""
+    """Return public challenges, plus posts shared with the signed-in viewer."""
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
     with get_connection() as connection:
@@ -783,9 +824,14 @@ def list_public_challenges(
                 """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name,
                 u.username AS user_handle
                 FROM challenges c JOIN users u ON u.id = c.user_id
-                WHERE c.visibility = 'public' OR (%s IS NOT NULL AND c.user_id = %s)
+                WHERE c.visibility = 'public'
+                   OR (%s IS NOT NULL AND c.user_id = %s)
+                   OR (%s IS NOT NULL AND c.visibility = 'friends' AND EXISTS (
+                       SELECT 1 FROM user_follows f
+                       WHERE f.follower_id = %s AND f.followed_id = c.user_id
+                   ))
                 ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
-                (viewer_id, viewer_id, limit, offset),
+                (viewer_id, viewer_id, viewer_id, viewer_id, limit, offset),
             )
             return [_challenge_response(row) for row in cursor.fetchall()]
 
@@ -1155,8 +1201,10 @@ def unfollow_user(user_id: str, followed_id: str) -> None:
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute(
-                "DELETE FROM user_follows WHERE follower_id = %s AND followed_id = %s",
-                (user_id, followed_id),
+                """DELETE FROM user_follows
+                WHERE (follower_id = %s AND followed_id = %s)
+                   OR (follower_id = %s AND followed_id = %s)""",
+                (user_id, followed_id, followed_id, user_id),
             )
 
 
@@ -1201,6 +1249,29 @@ def get_friend_requests(user_id: str) -> list[FriendRequestResponse]:
                 FROM friend_requests r JOIN users u ON u.id = r.requester_id
                 WHERE r.recipient_id = %s AND r.status = 'pending' ORDER BY r.created_at DESC""", (user_id,))
             return [_friend_request(row) for row in cursor.fetchall()]
+
+
+@app.get("/users/{user_id}/friend-requests/sent", response_model=list[SentFriendRequestResponse])
+def get_sent_friend_requests(user_id: str) -> list[SentFriendRequestResponse]:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """SELECT r.id, r.recipient_id,
+                    COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS recipient_name,
+                    u.username AS recipient_username, r.status, r.created_at
+                    FROM friend_requests r JOIN users u ON u.id = r.recipient_id
+                    WHERE r.requester_id = %s AND r.status = 'pending'
+                    ORDER BY r.created_at DESC""",
+                (user_id,),
+            )
+            rows = cursor.fetchall()
+    return [
+        SentFriendRequestResponse(**{**row, "created_at": _timestamp(row["created_at"])})
+        for row in rows
+    ]
 
 
 @app.patch("/users/{user_id}/friend-requests/{request_id}", response_model=FriendRequestResponse)

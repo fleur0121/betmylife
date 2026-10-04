@@ -25,6 +25,7 @@ export default function Notifications() {
       const body = await response.json();
       if (!response.ok) throw new Error(body.detail ?? "Could not load friend requests.");
       setRequests(body);
+      setError("");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not load friend requests.");
     }
@@ -36,21 +37,27 @@ export default function Notifications() {
 
   async function respond(requestId: string, decision: "accept" | "decline") {
     if (!state.authUserId) return;
-    const response = await fetch(`${API_URL}/users/${state.authUserId}/friend-requests/${requestId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ decision }),
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null);
-      setError(body?.detail ?? "Could not respond to friend request.");
-      return;
+    setError("");
+    try {
+      const response = await fetch(`${API_URL}/users/${state.authUserId}/friend-requests/${encodeURIComponent(requestId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail ?? "Could not respond to friend request.");
+      }
+      setRequests((items) => items.filter((item) => item.id !== requestId));
+      if (decision === "accept") {
+        const followingResponse = await fetch(`${API_URL}/users/${state.authUserId}/following`);
+        const following = await followingResponse.json();
+        if (!followingResponse.ok) throw new Error(following.detail ?? "Friend request accepted, but friend list could not refresh.");
+        dispatch({ type: "set-following-ids", ids: following.followed_ids ?? [] });
+      }
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not respond to friend request.");
     }
-    if (decision === "accept") {
-      const following = await fetch(`${API_URL}/users/${state.authUserId}/following`).then((result) => result.json());
-      dispatch({ type: "set-following-ids", ids: following.followed_ids ?? [] });
-    }
-    setRequests((items) => items.filter((item) => item.id !== requestId));
   }
 
   return (

@@ -63,7 +63,7 @@ export async function saveChallenge(input: CreateChallengeInput): Promise<SavedC
 }
 
 export async function getChallenges(userId: string): Promise<SavedChallenge[]> {
-  const response = await fetch(`${API_URL}/users/${userId}/challenges`);
+  const response = await fetch(`${API_URL}/users/${encodeURIComponent(userId)}/challenges?viewer_id=${encodeURIComponent(userId)}`);
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail ?? `Challenge load failed (${response.status}).`);
   return body as SavedChallenge[];
