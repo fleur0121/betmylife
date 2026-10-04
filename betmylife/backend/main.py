@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -184,6 +185,17 @@ class AppStateRequest(BaseModel):
 
 class FollowingResponse(BaseModel):
     followed_ids: list[str]
+
+
+class LeaderboardEntry(BaseModel):
+    id: str
+    username: str
+    display_name: str
+    nickname: str | None = None
+    avatar: str = ""
+    points: int
+    accuracy: int
+    streak: int
 
 
 class UserSummary(BaseModel):
@@ -1012,6 +1024,72 @@ def get_following(user_id: str) -> FollowingResponse:
             )
             followed_ids = [row["followed_id"] for row in cursor.fetchall()]
     return FollowingResponse(followed_ids=followed_ids)
+
+
+@app.get("/users/{user_id}/leaderboard", response_model=list[LeaderboardEntry])
+def get_leaderboard(user_id: str) -> list[LeaderboardEntry]:
+    """Rank the signed-in user and followed users using persisted account data."""
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                "SELECT followed_id FROM user_follows WHERE follower_id = %s",
+                (user_id,),
+            )
+            member_ids = [user_id, *(row["followed_id"] for row in cursor.fetchall())]
+            placeholders = ",".join(["%s"] * len(member_ids))
+            cursor.execute(
+                f"""SELECT u.id, u.username, u.display_name, u.nickname, u.avatar,
+                    u.points, s.state_json
+                    FROM users u LEFT JOIN user_app_states s ON s.user_id = u.id
+                    WHERE u.id IN ({placeholders})""",
+                member_ids,
+            )
+            rows = cursor.fetchall()
+
+    entries: list[LeaderboardEntry] = []
+    for row in rows:
+        state = _state_data(row.get("state_json"))
+        predictions = state.get("stakedPredictions") or {}
+        if isinstance(predictions, dict):
+            predictions = predictions.values()
+        settled = [
+            item for item in predictions
+            if isinstance(item, dict) and item.get("status") in {"won", "lost"}
+        ]
+        wins = sum(item.get("status") == "won" for item in settled)
+        accuracy = round(wins * 100 / len(settled)) if settled else 0
+
+        successful_days: set[str] = set()
+        for challenge in state.get("challenges") or []:
+            if not isinstance(challenge, dict) or challenge.get("result") != "success":
+                continue
+            resolved_at = challenge.get("resolvedAt")
+            if not resolved_at:
+                continue
+            try:
+                resolved = datetime.fromisoformat(str(resolved_at).replace("Z", "+00:00"))
+                if resolved.tzinfo is None:
+                    resolved = resolved.replace(tzinfo=timezone.utc)
+                successful_days.add(resolved.astimezone(timezone.utc).date().isoformat())
+            except ValueError:
+                continue
+        streak = 0
+        day = datetime.now(timezone.utc).date()
+        if day.isoformat() not in successful_days:
+            day -= timedelta(days=1)
+        while day.isoformat() in successful_days:
+            streak += 1
+            day -= timedelta(days=1)
+
+        entries.append(LeaderboardEntry(
+            id=row["id"], username=row["username"], display_name=row["display_name"],
+            nickname=row.get("nickname"), avatar=row.get("avatar") or "",
+            points=int(row.get("points") or 0), accuracy=accuracy, streak=streak,
+        ))
+    return sorted(entries, key=lambda entry: (-entry.points, entry.username.casefold()))
 
 
 @app.get("/users/search", response_model=list[UserSummary])

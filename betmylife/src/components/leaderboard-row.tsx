@@ -5,8 +5,7 @@
  */
 import { Text } from "@/components/localized-text";
 import { palette as c } from "@/constants/design";
-import { users } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
+import type { LeaderboardUser } from "@/services/leaderboard-service";
 import { router } from "expo-router";
 import { Pressable } from "react-native";
 import { Avatar, s } from "./ui-kit";
@@ -14,34 +13,35 @@ export function LeaderboardRow({
   user,
   rank,
   score,
-  currentUserName,
+  currentUserId,
 }: {
-  user: (typeof users)[number];
+  user: LeaderboardUser;
   rank: number;
   score: string;
-  currentUserName?: string;
+  currentUserId?: string;
 }) {
-  const profile = friendDirectory.find((friend) => friend.name === user.name);
+  const name = user.nickname?.trim() || user.display_name || user.username;
+  const isCurrentUser = user.id === currentUserId;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${user.name}'s profile`}
-      onPress={() => profile && router.push(`/user/${profile.id}`)}
+      accessibilityLabel={`Open ${name}'s profile`}
+      onPress={() => router.push(`/user/${user.id}`)}
       style={({ pressed }) => [
         s.row,
         pressed && { opacity: 0.7 },
         {
           padding: 14,
           borderRadius: 16,
-          backgroundColor: user.name === currentUserName ? c.lavenderLight : c.card,
+          backgroundColor: isCurrentUser ? c.lavenderLight : c.card,
         },
       ]}
     >
       <Text style={[s.caption, { width: 18, fontWeight: "800" }]}>{rank}</Text>
-      <Avatar emoji={user.avatar} color={user.color} size={40} />
+      <Avatar emoji={user.avatar || "☁️"} color={isCurrentUser ? c.lavenderLight : c.peach} size={40} />
       <Text style={[s.bold, s.flex]}>
-        {user.name}
-        {user.name === currentUserName ? " (you)" : ""}
+        {name}
+        {isCurrentUser ? " (you)" : ""}
       </Text>
       <Text style={[s.bold, { color: c.primaryDark }]}>{score}</Text>
     </Pressable>

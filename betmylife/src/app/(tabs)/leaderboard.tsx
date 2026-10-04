@@ -1,8 +1,4 @@
-/**
- * ランキング画面。モックユーザーを週間ポイント・予想精度・連続日数で並べ替える。
- * 選択された指標に応じてトップ3の表彰台、一覧の順位、表示するスコアを切り替える。
- * ここで使う週間ポイントは、Shopで消費するウォレット残高とは別の値。
- */
+/** Rank the signed-in user and followed accounts using saved account data. */
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { LeaderboardRow } from "@/components/leaderboard-row";
 import { Text } from "@/components/localized-text";
@@ -17,54 +13,75 @@ import {
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { AVATAR_FRAME_ART_SCALE } from "@/components/profile/avatar-frame";
-import { users } from "@/mock/data";
-import { API_URL } from "@/constants/api";
+import { getLeaderboard, type LeaderboardUser } from "@/services/leaderboard-service";
 import { useAppState } from "@/state/app-state";
 import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
-const metrics = ["Weekly", "Prediction", "Streak"] as const;
+const metrics = ["Points", "Prediction", "Streak"] as const;
 type Metric = (typeof metrics)[number];
 export default function Leaderboard() {
   const { state } = useAppState();
-  const [metric, setMetric] = useState<Metric>("Weekly");
-  const [currentUserName, setCurrentUserName] = useState("You");
+  const [metric, setMetric] = useState<Metric>("Points");
+  const [users, setUsers] = useState<LeaderboardUser[]>([]);
+  const [loadedForUserId, setLoadedForUserId] = useState<string | null>(null);
+  const [error, setError] = useState("");
   useEffect(() => {
     if (!state.authUserId) return;
-    fetch(`${API_URL}/users/${state.authUserId}/profile`)
-      .then((response) => response.json())
-      .then((profile: { nickname?: string | null; display_name?: string; username?: string }) => {
-        setCurrentUserName(profile.nickname?.trim() || profile.display_name || profile.username || "You");
+    let cancelled = false;
+    const userId = state.authUserId;
+    getLeaderboard(userId)
+      .then((entries) => {
+        if (cancelled) return;
+        setUsers(entries);
+        setError("");
       })
-      .catch(() => setCurrentUserName("You"));
+      .catch((loadError: unknown) => {
+        if (cancelled) return;
+        setUsers([]);
+        setError(loadError instanceof Error ? loadError.message : "Could not load leaderboard.");
+      })
+      .finally(() => { if (!cancelled) setLoadedForUserId(userId); });
+    return () => { cancelled = true; };
   }, [state.authUserId]);
   const key =
-    metric === "Weekly"
+    metric === "Points"
       ? "points"
       : metric === "Prediction"
         ? "accuracy"
         : "streak";
-  const ranked = users.map((user) => user.name === "Fuka" ? { ...user, name: currentUserName } : user).sort((a, b) => b[key] - a[key]);
-  const score = (user: (typeof users)[number]) =>
+  const ranked = users.slice().sort((a, b) => b[key] - a[key] || b.points - a.points);
+  const currentRank = ranked.findIndex((user) => user.id === state.authUserId) + 1;
+  const visibleError = state.authUserId ? error : "Sign in to see your circle leaderboard.";
+  const loading = Boolean(state.authUserId && loadedForUserId !== state.authUserId);
+  const score = (user: LeaderboardUser) =>
     `${user[key].toLocaleString()}${key === "accuracy" ? "%" : key === "streak" ? " days" : " PT"}`;
+  const podiumOrder = ranked.length >= 3
+    ? [1, 0, 2]
+    : ranked.length === 2
+      ? [1, 0]
+      : ranked.map((_, index) => index);
   return (
     <Screen title="Leaderboard">
       <PageHeading
         title="Your circle, your climb"
-        subtitle="Compare points, prediction accuracy, and streaks."
+        subtitle="Compare points, prediction accuracy, and streaks with people you follow."
         right={<BrandAsset name="iconLeaderboard" style={styles.headingArt} label="Leaderboard" />}
       />
       <Segments options={metrics} value={metric} onChange={setMetric} />
-      <View style={styles.podium}>
-        {[1, 0, 2].map((index) => {
+      {!!ranked.length && <View style={styles.podium}>
+        {podiumOrder.map((index) => {
           const user = ranked[index];
-          const avatarSize = index === 0 ? 63 : 52;
+          const rank = index + 1;
+          const isLeader = rank === 1;
+          const name = user.nickname?.trim() || user.display_name || user.username;
+          const avatarSize = isLeader ? 63 : 52;
           const frameArtSize = avatarSize * AVATAR_FRAME_ART_SCALE;
           return (
             <View
-              key={user.name}
-              style={[styles.podiumUser, index === 0 && { marginTop: 0 }]}
+              key={user.id}
+              style={[styles.podiumUser, isLeader && { marginTop: 0 }]}
             >
-              {index === 0 && (
+              {isLeader && (
                 <BrandAsset
                   name="iconTrophy"
                   style={styles.crown}
@@ -73,8 +90,8 @@ export default function Leaderboard() {
               )}
               <View style={styles.avatarStage}>
                 <Avatar
-                  emoji={user.avatar}
-                  color={user.color}
+                  emoji={user.avatar || "☁️"}
+                  color={rank === 1 ? c.lavenderLight : c.peach}
                   size={avatarSize}
                 />
                 <BrandAsset
@@ -98,9 +115,7 @@ export default function Leaderboard() {
                   ]}
                 />
               </View>
-              <Text translate={false} style={s.bold}>
-                {user.name}
-              </Text>
+              <Text translate={false} style={s.bold}>{name}</Text>
               <Text
                 style={[s.caption, { color: c.primaryDark, fontWeight: "800" }]}
               >
@@ -110,47 +125,47 @@ export default function Leaderboard() {
                 style={[
                   styles.pedestal,
                   {
-                    height: index === 0 ? 105 : index === 1 ? 75 : 55,
-                    backgroundColor: index === 0 ? c.primary : c.lavender,
+                    height: rank === 1 ? 105 : rank === 2 ? 75 : 55,
+                    backgroundColor: isLeader ? c.primary : c.lavender,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.rank,
-                    { color: index === 0 ? c.card : c.primary },
+                    { color: isLeader ? c.card : c.primary },
                   ]}
                 >
-                  0{index + 1}
+                  0{rank}
                 </Text>
               </View>
             </View>
           );
         })}
-      </View>
+      </View>}
       <Card style={{ backgroundColor: c.lavenderLight }}>
-        <Text style={s.bold}>
-          ✦ You’re #{ranked.findIndex((user) => user.name === currentUserName) + 1} this
-          week
-        </Text>
+        <Text style={s.bold}>{currentRank ? `✦ You’re #${currentRank} in your circle` : "✦ Your circle leaderboard"}</Text>
         <Text style={s.muted}>
-          Every little effort counts. Your next challenge could move you up.
+          Scores use saved account points, settled predictions, and completed challenges.
         </Text>
       </Card>
-      <SectionHeader title="Your circle" detail="THIS WEEK · DEMO" />
+      <SectionHeader title="Your circle" detail="FOLLOWED ACCOUNTS" />
+      {state.authUserId && loading && <Text style={s.muted}>Loading leaderboard…</Text>}
+      {!!visibleError && <Text accessibilityRole="alert" style={{ color: c.red }}>{visibleError}</Text>}
+      {state.authUserId && !loading && !visibleError && ranked.length === 0 && <Text style={s.muted}>No leaderboard data yet.</Text>}
       <View style={{ gap: 8 }}>
         {ranked.map((user, index) => (
           <LeaderboardRow
-            key={user.name}
+            key={user.id}
             user={user}
             rank={index + 1}
             score={score(user)}
-            currentUserName={currentUserName}
+            currentUserId={state.authUserId ?? undefined}
           />
         ))}
       </View>
       <Text style={[s.caption, { textAlign: "center" }]}>
-        Weekly points celebrate progress. Shop points are yours to spend.
+        Points are your current account balance. Prediction accuracy uses settled picks.
       </Text>
     </Screen>
   );

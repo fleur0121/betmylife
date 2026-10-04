@@ -12,8 +12,7 @@ import { s } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
-import { challenges as demoChallenges, type Challenge } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
+import type { Challenge } from "@/mock/data";
 import { getPublicChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
@@ -147,15 +146,15 @@ export default function Home() {
       cancelled = true;
     };
   }, [state.authUserId]);
-  const predictionCount = Object.keys(state.stakedPredictions).length;
-  const featured =
-    state.challenges.find((item) => item.id === "read-today") ??
-    demoChallenges.find((item) => item.id === "read-today");
+  const activeUserPicks = Object.values(state.stakedPredictions).filter(
+    (prediction) => prediction.userId === state.authUserId && prediction.status === "active",
+  );
+  const predictionCount = activeUserPicks.length;
+  const featured = state.challenges.find((item) => item.id === "read-today");
   const myChallenges = state.challenges.filter(
     (item) => item.ownerId === state.authUserId,
   );
-  const myPicks = Object.values(state.stakedPredictions)
-    .filter((prediction) => prediction.userId === state.authUserId && prediction.status === "active")
+  const myPicks = activeUserPicks
     .map((prediction) => {
       const challenge = state.challenges.find((item) => item.id === prediction.challengeId);
       if (!challenge) return null;
@@ -166,9 +165,7 @@ export default function Home() {
       };
     })
     .filter((pick): pick is { challenge: Challenge; choice: "yes" | "no"; odds: string } => pick !== null);
-  const friendNames = friendDirectory
-    .filter((friend) => state.friendIds.includes(friend.id))
-    .map((friend) => friend.name);
+  const myPickedChallengeIds = new Set(myPicks.map(({ challenge }) => challenge.id));
   const feed = state.challenges.filter(
     (item) =>
       item.id !== featured?.id &&
@@ -176,8 +173,8 @@ export default function Home() {
       (filter === "Public"
         ? item.visibility === "public"
         : filter === "Friends"
-          ? friendNames.includes(item.user)
-          : !!state.predictions[item.id]),
+          ? state.friendIds.includes(item.ownerId ?? "")
+          : myPickedChallengeIds.has(item.id)),
   );
   const dateStrip = Array.from({ length: 21 }, (_, index) => {
     const date = new Date();
@@ -397,15 +394,14 @@ export default function Home() {
                   <FeaturedChallengeCard challenge={featured} />
                 </View>
               )}
-              {myChallenges.length > 0 && (
-                <View style={styles.myChallengesBlock}>
-                  <View style={styles.myChallengesHeading}>
-                    <Text style={styles.feedEyebrow}>YOUR CHALLENGES</Text>
-                    <Text style={styles.myChallengesHint}>Swipe to view</Text>
-                  </View>
+              <View style={styles.myChallengesBlock}>
+                <View style={styles.myChallengesHeading}>
+                  <Text style={styles.feedEyebrow}>YOUR CHALLENGES</Text>
+                  {myChallenges.length > 0 && <Text style={styles.myChallengesHint}>Swipe to view</Text>}
+                </View>
+                {myChallenges.length > 0 ? (
                   <ScrollView
                     horizontal
-                    pagingEnabled
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.myChallengesRow}
                   >
@@ -424,8 +420,12 @@ export default function Home() {
                       </View>
                     ))}
                   </ScrollView>
-                </View>
-              )}
+                ) : (
+                  <View style={[styles.myActivityEmpty, { backgroundColor: c.lavenderLight }]}>
+                    <Text style={s.muted}>Your created challenges will show up here.</Text>
+                  </View>
+                )}
+              </View>
               {!featured && myChallenges.length === 0 && (
                 <View style={styles.emptyHero}>
                   <BrandAsset
@@ -439,15 +439,14 @@ export default function Home() {
                   </Text>
                 </View>
               )}
-              {myPicks.length > 0 && (
-                <View style={styles.myChallengesBlock}>
-                  <View style={styles.myChallengesHeading}>
-                    <Text style={styles.feedEyebrow}>YOUR PICKS</Text>
-                    <Text style={styles.myChallengesHint}>Swipe to view</Text>
-                  </View>
+              <View style={styles.myChallengesBlock}>
+                <View style={styles.myChallengesHeading}>
+                  <Text style={styles.feedEyebrow}>YOUR PICKS</Text>
+                  {myPicks.length > 0 && <Text style={styles.myChallengesHint}>Swipe to view</Text>}
+                </View>
+                {myPicks.length > 0 ? (
                   <ScrollView
                     horizontal
-                    pagingEnabled
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.myChallengesRow}
                   >
@@ -467,12 +466,16 @@ export default function Home() {
                       </View>
                     ))}
                   </ScrollView>
-                </View>
-              )}
+                ) : (
+                  <View style={[styles.myActivityEmpty, { backgroundColor: c.cream }]}>
+                    <Text style={s.muted}>Your active picks will show up here.</Text>
+                  </View>
+                )}
+              </View>
               <View style={styles.statsRow}>
                 <StatTile
                   asset="iconStreak"
-                  value={String(state.challenges.length)}
+                  value={String(myChallenges.length)}
                   label="MY CHALLENGES"
                   color={c.peach}
                 />
@@ -759,6 +762,14 @@ const styles = StyleSheet.create({
   },
   myChallengesHint: { color: c.muted, fontSize: 10, fontWeight: "700" },
   myChallengesRow: { paddingHorizontal: 12, gap: 10 },
+  myActivityEmpty: {
+    width: 300,
+    minHeight: 142,
+    marginHorizontal: 12,
+    padding: 16,
+    borderRadius: 20,
+    justifyContent: "center",
+  },
   myChallengeSlide: {
     width: 300,
     minHeight: 142,
