@@ -11,10 +11,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
+
 try:
-    from .ml_prediction import build_history, build_prediction_features, request_prediction
+    from .ml_prediction import (
+        build_history,
+        build_prediction_features,
+        request_prediction,
+    )
 except ImportError:
-    from ml_prediction import build_history, build_prediction_features, request_prediction
+    from ml_prediction import (
+        build_history,
+        build_prediction_features,
+        request_prediction,
+    )
 
 try:
     from .challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
@@ -588,21 +597,30 @@ def create_challenge(
         if parsed_deadline.tzinfo is None:
             parsed_deadline = parsed_deadline.replace(tzinfo=timezone.utc)
         prediction_deadline = parsed_deadline
-        parsed_deadline = parsed_deadline.astimezone(timezone.utc).replace(tzinfo=None)
+        parsed_deadline = parsed_deadline.astimezone(timezone.utc).replace(
+            tzinfo=None
+        )
     except ValueError as error:
         raise HTTPException(
             status_code=422, detail="deadline_at must be an ISO datetime"
         ) from error
     features = build_prediction_features(
-        request.title, request.category, request.difficulty, request.confidence,
-        prediction_deadline, request.analysis, request.user_input,
+        request.title,
+        request.category,
+        request.difficulty,
+        request.confidence,
+        prediction_deadline,
+        request.analysis,
+        request.user_input,
     )
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
-            analysis_data = _state_data((request.analysis or {}).get("data")) or (request.analysis or {})
+            analysis_data = _state_data(
+                (request.analysis or {}).get("data")
+            ) or (request.analysis or {})
             analysis_actions = analysis_data.get("actions") or []
             primary_action = (
                 analysis_actions[0]
@@ -610,24 +628,29 @@ def create_challenge(
                 else {}
             )
             history = build_history(
-                cursor, user_id, features["category"],
+                cursor,
+                user_id,
+                features["category"],
                 primary_action.get("subcategory"),
-                features["goal_type"], features.get("goal_unit"),
+                features["goal_type"],
+                features.get("goal_unit"),
             )
     prediction = request_prediction(features, history)
     probability = round(float(prediction["success_probability"]) * 100, 2)
     prediction_meta = {
         "breakdown": prediction.get("breakdown", {}),
-        "ml_request": prediction.get("request", {**features, "history": history}),
-        "difficulty_used": prediction.get("difficulty_used", request.difficulty),
+        "ml_request": prediction.get(
+            "request", {**features, "history": history}
+        ),
+        "difficulty_used": prediction.get(
+            "difficulty_used", request.difficulty
+        ),
         "category": prediction.get("category", features["category"]),
         "goal_type": prediction.get("goal_type", features["goal_type"]),
     }
     with get_connection() as connection:
         with connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id FROM users WHERE id = %s", (user_id,)
-            )
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute(
@@ -704,9 +727,13 @@ def list_public_challenges(
     with get_connection() as connection:
         with connection.cursor() as cursor:
             if viewer_id:
-                cursor.execute("SELECT id FROM users WHERE id = %s", (viewer_id,))
+                cursor.execute(
+                    "SELECT id FROM users WHERE id = %s", (viewer_id,)
+                )
                 if cursor.fetchone() is None:
-                    raise HTTPException(status_code=404, detail="User not found")
+                    raise HTTPException(
+                        status_code=404, detail="User not found"
+                    )
             cursor.execute(
                 """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
                 FROM challenges c JOIN users u ON u.id = c.user_id
@@ -734,8 +761,13 @@ def record_challenge_result(
                 )
                 challenge = cursor.fetchone()
                 if challenge is None:
-                    raise HTTPException(status_code=404, detail="Challenge not found")
-                if challenge.get("result") and challenge["result"] != request.result:
+                    raise HTTPException(
+                        status_code=404, detail="Challenge not found"
+                    )
+                if (
+                    challenge.get("result")
+                    and challenge["result"] != request.result
+                ):
                     raise HTTPException(
                         status_code=409,
                         detail="Challenge already has a different result",
@@ -754,7 +786,11 @@ def record_challenge_result(
                 analysis = _state_data(challenge.get("analysis_json"))
                 data = _state_data(analysis.get("data")) or analysis
                 actions = data.get("actions") or []
-                action = actions[0] if actions and isinstance(actions[0], dict) else {}
+                action = (
+                    actions[0]
+                    if actions and isinstance(actions[0], dict)
+                    else {}
+                )
                 history_features = features or {
                     "category": "other",
                     "goal_type": "task",
@@ -783,9 +819,11 @@ def record_challenge_result(
                         history_features.get("goal_value"),
                         history_features.get("goal_unit"),
                         history_features.get("goal_type"),
-                        int(history_features["target_hour"])
-                        if history_features.get("target_hour") is not None
-                        else None,
+                        (
+                            int(history_features["target_hour"])
+                            if history_features.get("target_hour") is not None
+                            else None
+                        ),
                         history_features.get("day_of_week"),
                         1 if request.result == "success" else 0,
                     ),

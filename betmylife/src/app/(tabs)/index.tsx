@@ -12,7 +12,7 @@ import { s } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
-import type { Challenge } from "@/mock/data";
+import { challenges as demoChallenges, type Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
 import { getPublicChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
@@ -148,7 +148,9 @@ export default function Home() {
     };
   }, [state.authUserId]);
   const predictionCount = Object.keys(state.stakedPredictions).length;
-  const featured = state.challenges.find((item) => item.id === "read-today");
+  const featured =
+    state.challenges.find((item) => item.id === "read-today") ??
+    demoChallenges.find((item) => item.id === "read-today");
   const friendNames = friendDirectory
     .filter((friend) => state.friendIds.includes(friend.id))
     .map((friend) => friend.name);
