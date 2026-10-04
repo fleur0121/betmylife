@@ -63,6 +63,7 @@ type Action =
   | { type: "settle-challenge"; challengeId: string; outcome: ChallengeOutcome; settledAt?: string; resolvedTimezone?: string; proofMethodsUsed?: string[]; aiProofVerified?: boolean }
   | { type: "create"; challenge: Challenge }
   | { type: "replace-challenges"; challenges: Challenge[] }
+  | { type: "update-odds"; challengeId: string; yesOdds: number; noOdds: number }
   | { type: "delete"; id: string }
   | { type: "buy"; id: string }
   | { type: "equip"; id: string };
@@ -297,6 +298,13 @@ export function appReducer(state: State, action: Action): State {
         return saved ? { ...saved, ...challenge, result: saved.result, pointsSettled: saved.pointsSettled, resolvedAt: saved.resolvedAt, resolvedTimezone: saved.resolvedTimezone, proofMethodsUsed: saved.proofMethodsUsed, aiProofVerified: saved.aiProofVerified } : challenge;
       });
       return finalizeTransition(state, { ...state, challenges });
+    }
+    case "update-odds": {
+      const yesOdds = action.yesOdds.toFixed(2);
+      const noOdds = action.noOdds.toFixed(2);
+      const challenge = state.challenges.find((item) => item.id === action.challengeId);
+      if (!challenge || (challenge.yesOdds === yesOdds && challenge.noOdds === noOdds)) return state;
+      return { ...state, challenges: state.challenges.map((item) => item.id === action.challengeId ? { ...item, yesOdds, noOdds } : item) };
     }
     case "delete": {
       const challenge = state.challenges.find((item) => item.id === action.id);

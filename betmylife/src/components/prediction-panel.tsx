@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
   Alert,
@@ -14,6 +14,7 @@ import { Text } from "@/components/localized-text";
 import { palette as c } from "@/constants/design";
 import { currentUser, type Challenge, type PredictionChoice } from "@/mock/data";
 import { myFriendId } from "@/mock/friends";
+import { getChallengeOdds } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import {
   calculatePotentialProfit,
@@ -26,6 +27,42 @@ import {
   validateStake,
 } from "@/utils/predictions";
 import { s } from "./ui-kit";
+
+/** Minimum gap between manual refreshes; odds are never polled, so each tap is one request. */
+const ODDS_REFRESH_COOLDOWN_MS = 10_000;
+
+function RefreshOddsButton({ challengeId }: { challengeId: string }) {
+  const { dispatch } = useAppState();
+  const [status, setStatus] = useState<"idle" | "loading" | "fresh" | "error">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  async function refresh() {
+    setStatus("loading");
+    try {
+      const odds = await getChallengeOdds(challengeId);
+      dispatch({ type: "update-odds", challengeId, yesOdds: odds.yes_odds, noOdds: odds.no_odds });
+      setStatus("fresh");
+    } catch {
+      setStatus("error");
+    }
+    timer.current = setTimeout(() => setStatus("idle"), ODDS_REFRESH_COOLDOWN_MS);
+  }
+
+  const label = status === "loading" ? "REFRESHING…" : status === "fresh" ? "ODDS UP TO DATE" : status === "error" ? "COULDN’T REFRESH ODDS" : "↻ REFRESH ODDS";
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Refresh odds"
+      disabled={status !== "idle"}
+      onPress={refresh}
+      hitSlop={8}
+      style={({ pressed }) => [styles.refreshOdds, pressed && s.pressed]}
+    >
+      <Text style={[styles.refreshOddsText, status !== "idle" && styles.refreshOddsMuted]}>{label}</Text>
+    </Pressable>
+  );
+}
 
 type PredictionPanelProps = {
   challenge: Challenge;
@@ -124,6 +161,7 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
               <Text style={styles.ownOddsValue}>×{Number(challenge.noOdds).toFixed(2)}</Text>
             </View>
           </View>
+          {challenge.ownerId && <RefreshOddsButton challengeId={challenge.id} />}
         </View>
       </View>
     );
@@ -236,6 +274,7 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
           <Text style={[styles.chooseHint, variant === "featured" && styles.featuredHint]}>
             {expired ? "PREDICTIONS CLOSED" : windowClosed ? "PREDICTIONS LOCKED" : settledPrediction ? "PREDICTION SETTLED" : "PICK A SIDE · STAKE POINTS NEXT"}
           </Text>
+          {challenge.ownerId && !expired && !windowClosed && !settledPrediction && <RefreshOddsButton challengeId={challenge.id} />}
         </>
       )}
 
@@ -381,6 +420,9 @@ const styles = StyleSheet.create({
   featuredHint: { color: "#DCE7FF" },
   disabled: { opacity: 0.55 },
   ownPanel: { padding: 12, borderRadius: 16, backgroundColor: c.lavenderLight },
+  refreshOdds: { alignSelf: "center", marginTop: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  refreshOddsText: { color: c.primaryDark, fontSize: 9, fontWeight: "900", letterSpacing: 0.6 },
+  refreshOddsMuted: { color: c.muted },
   ownOdds: { marginTop: 11, paddingTop: 9, borderTopWidth: 1, borderTopColor: c.lavender },
   ownOddsHeading: { color: c.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
   ownOddsRow: { flexDirection: "row", alignItems: "center", marginTop: 7 },

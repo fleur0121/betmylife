@@ -36,6 +36,10 @@ class MemoryCursor:
         elif sql.startswith("SELECT * FROM challenges WHERE id = %s AND user_id = %s"):
             row = db.challenges.get(values[0])
             self.result = dict(row) if row and row["user_id"] == values[1] else None
+        elif sql.startswith("SELECT probability, yes_odds, no_odds, yes_pool, no_pool FROM challenges"):
+            db.odds_reads += 1
+            row = db.challenges.get(values[0])
+            self.result = dict(row) if row else None
         elif sql.startswith("SELECT id FROM challenge_predictions"):
             challenge_id, user_id = values
             self.result = next(
@@ -121,6 +125,7 @@ class MemoryDb:
         self.states = {name: {"wallet": pts, "transactions": []} for name, pts in self.points.items()}
         self.ledger = {}
         self.predictions = {}
+        self.odds_reads = 0
 
     def begin(self):
         pass
@@ -175,6 +180,8 @@ class PlacePredictionTests(unittest.TestCase):
         patcher = patch.object(main, "get_connection", get_connection)
         patcher.start()
         self.addCleanup(patcher.stop)
+        betting._odds_cache.clear()
+        self.addCleanup(betting._odds_cache.clear)
 
     def bet(self, user, choice="yes", stake=100, expected=None):
         return main.place_prediction(
@@ -250,6 +257,21 @@ class PlacePredictionTests(unittest.TestCase):
         reloaded = self.db.states["alice"]
         main.save_app_state("alice", main.AppStateRequest(version=2, data=reloaded))
         self.assertEqual(self.db.points["alice"], 400)
+
+
+    def test_refresh_reads_once_per_cache_window_and_sees_new_bets(self):
+        first = main.get_challenge_odds("c1")
+        main.get_challenge_odds("c1")
+        self.assertEqual(self.db.odds_reads, 1)
+
+        placed = self.bet("alice")
+        refreshed = main.get_challenge_odds("c1")
+        self.assertEqual(self.db.odds_reads, 2)
+        self.assertEqual((refreshed.yes_odds, refreshed.no_odds), (placed.yes_odds, placed.no_odds))
+        self.assertLess(refreshed.yes_odds, first.yes_odds)
+        self.assertEqual(refreshed.yes_pool, 100)
+
+        self.assert_http(404, lambda: main.get_challenge_odds("missing"))
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ running YES/NO stake totals, so showing live odds costs no extra queries.
 """
 
 import math
+import time
 from datetime import datetime, timedelta
 
 MIN_STAKE = 10
@@ -71,3 +72,28 @@ def payout(stake: int, locked_odds: float) -> int:
 
 def betting_closes_at(deadline_at: datetime) -> datetime:
     return deadline_at - LOCK_BEFORE_DEADLINE
+
+
+# Manual "refresh odds" taps are served from memory for a few seconds, so many viewers
+# tapping at once cost one database read per challenge, not one per tap. A bet placed
+# through this process drops the entry, so the bettor's own refresh is never stale.
+ODDS_CACHE_SECONDS = 5
+_odds_cache: dict[str, tuple[float, dict]] = {}
+
+
+def cached_odds(challenge_id: str) -> dict | None:
+    entry = _odds_cache.get(challenge_id)
+    if entry and time.monotonic() - entry[0] < ODDS_CACHE_SECONDS:
+        return entry[1]
+    _odds_cache.pop(challenge_id, None)
+    return None
+
+
+def cache_odds(challenge_id: str, odds: dict) -> None:
+    if len(_odds_cache) > 10_000:
+        _odds_cache.clear()
+    _odds_cache[challenge_id] = (time.monotonic(), odds)
+
+
+def forget_odds(challenge_id: str) -> None:
+    _odds_cache.pop(challenge_id, None)

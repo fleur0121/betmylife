@@ -109,3 +109,13 @@ export async function placePrediction(userId: string, challengeId: string, choic
   if (!response.ok) throw new Error(body.detail?.message ?? body.detail ?? `Prediction failed (${response.status}).`);
   return body as PlacedPrediction;
 }
+
+export type ChallengeOdds = { challenge_id: string; yes_odds: number; no_odds: number; yes_pool: number; no_pool: number };
+
+/** Fetches live odds on demand; odds are never polled, so this is the only refresh path. */
+export async function getChallengeOdds(challengeId: string) {
+  const response = await fetch(`${API_URL}/challenges/${challengeId}/odds`);
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail ?? `Odds refresh failed (${response.status}).`);
+  return body as ChallengeOdds;
+}

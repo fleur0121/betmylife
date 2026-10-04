@@ -236,6 +236,14 @@ class PredictionCreateRequest(BaseModel):
     expected_odds: float | None = Field(default=None, gt=0)
 
 
+class ChallengeOddsResponse(BaseModel):
+    challenge_id: str
+    yes_odds: float
+    no_odds: float
+    yes_pool: int
+    no_pool: int
+
+
 class PredictionResponse(BaseModel):
     id: str
     challenge_id: str
@@ -997,6 +1005,7 @@ def place_prediction(
         except Exception:
             connection.rollback()
             raise
+    betting.forget_odds(challenge_id)
     return PredictionResponse(
         id=prediction_id,
         challenge_id=challenge_id,
@@ -1011,6 +1020,33 @@ def place_prediction(
         yes_odds=next_yes,
         no_odds=next_no,
     )
+
+
+@app.get("/challenges/{challenge_id}/odds", response_model=ChallengeOddsResponse)
+def get_challenge_odds(challenge_id: str) -> ChallengeOddsResponse:
+    """Live odds for the manual refresh button: one primary-key read of five columns."""
+    cached = betting.cached_odds(challenge_id)
+    if cached is not None:
+        return ChallengeOddsResponse(**cached)
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT probability, yes_odds, no_odds, yes_pool, no_pool FROM challenges WHERE id = %s",
+                (challenge_id,),
+            )
+            row = cursor.fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    yes_odds, no_odds = betting.challenge_live_odds(row)
+    odds = {
+        "challenge_id": challenge_id,
+        "yes_odds": yes_odds,
+        "no_odds": no_odds,
+        "yes_pool": int(row["yes_pool"] or 0),
+        "no_pool": int(row["no_pool"] or 0),
+    }
+    betting.cache_odds(challenge_id, odds)
+    return ChallengeOddsResponse(**odds)
 
 
 @app.get("/users/{user_id}/badges")
