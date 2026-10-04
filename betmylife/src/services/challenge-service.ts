@@ -13,10 +13,31 @@ type CreateChallengeInput = {
   deadlineLabel: string;
   analysis: ChallengeNlpResult | null;
   proofPlan?: Challenge["proofPlan"];
-  userInput: Record<string, unknown>;
+  userInput?: Record<string, unknown>;
 };
 
-export async function saveChallenge(input: CreateChallengeInput) {
+export type SavedChallenge = {
+  id: string;
+  user_id: string;
+  title: string;
+  category: Challenge["category"];
+  difficulty: number;
+  confidence: number;
+  visibility: Challenge["visibility"];
+  deadline_at: string;
+  deadline_label: string;
+  probability: number;
+  yes_odds: number;
+  no_odds: number;
+  proof_plan: Challenge["proofPlan"];
+  result: Challenge["result"];
+  resolved_at: string | null;
+  prediction_source: string;
+  prediction_model_version: string | null;
+  prediction_meta: Record<string, unknown> | null;
+};
+
+export async function saveChallenge(input: CreateChallengeInput): Promise<SavedChallenge> {
   const response = await fetch(`${API_URL}/users/${input.userId}/challenges`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -28,35 +49,30 @@ export async function saveChallenge(input: CreateChallengeInput) {
       visibility: input.visibility,
       deadline_at: input.deadlineAt,
       deadline_label: input.deadlineLabel,
-      user_input: input.userInput,
       analysis: input.analysis,
       ...(input.proofPlan ? { proof_plan: input.proofPlan } : {}),
+      ...(input.userInput ? { user_input: input.userInput } : {}),
     }),
   });
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail ?? `Challenge save failed (${response.status}).`);
-  return body;
+  return body as SavedChallenge;
 }
 
-export async function getChallenges(userId: string) {
+export async function getChallenges(userId: string): Promise<SavedChallenge[]> {
   const response = await fetch(`${API_URL}/users/${userId}/challenges`);
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail ?? `Challenge load failed (${response.status}).`);
-  return body as {
-    id: string;
-    user_id: string;
-    title: string;
-    category: Challenge["category"];
-    difficulty: number;
-    confidence: number;
-    visibility: Challenge["visibility"];
-    deadline_at: string;
-    deadline_label: string;
-    probability: number;
-    yes_odds: number;
-    no_odds: number;
-    proof_plan: Challenge["proofPlan"];
-    result: Challenge["result"];
-    resolved_at: string | null;
-  }[];
+  return body as SavedChallenge[];
+}
+
+export async function recordChallengeResult(userId: string, challengeId: string, result: "success" | "failed") {
+  const response = await fetch(`${API_URL}/users/${userId}/challenges/${challengeId}/result`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ result }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail ?? `Challenge result save failed (${response.status}).`);
+  return body as { status: string; result: "success" | "failed"; created: boolean };
 }

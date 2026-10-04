@@ -1,6 +1,6 @@
 /**
- * Home pairs a branded daily prediction with the filterable friends feed.
- * Featured votes and feed votes both update the existing local mock state.
+ * Home pairs a branded daily prediction with the filterable challenge feed.
+ * Challenges are loaded from the signed-in user's database records.
  */
 import { BrandAsset } from "@/components/brand-asset";
 import { ChallengeCard } from "@/components/challenge-card";
@@ -20,12 +20,12 @@ import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useRef, useState } from "react";
 import {
-  FlatList,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    FlatList,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -79,7 +79,7 @@ function StatTile({
 
 export default function Home() {
   const { state, dispatch } = useAppState();
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState("Public");
   const [category, setCategory] = useState("All");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -98,6 +98,7 @@ export default function Home() {
           type: "replace-challenges",
           challenges: items.map((item) => ({
             id: item.id,
+            ownerId: item.user_id,
             user: "Fuka",
             avatar: "🌷",
             color: c.lavender,
@@ -108,12 +109,12 @@ export default function Home() {
             deadline: item.deadline_label,
             deadlineAt: item.deadline_at,
             probability: item.probability,
+            predictionSource: item.prediction_source,
             yesOdds: item.yes_odds.toFixed(2),
             noOdds: item.no_odds.toFixed(2),
             friends: 0,
             visibility: item.visibility,
             proofPlan: item.proof_plan ?? undefined,
-            ownerId: state.authUserId ?? undefined,
             result: item.result ?? undefined,
             resolvedAt: item.resolved_at ?? undefined,
           })),
@@ -167,11 +168,11 @@ export default function Home() {
     return date;
   });
   const weekday = (date: Date) =>
-    date.toLocaleDateString(locale === "ja" ? "ja-JP" : "en-US", {
+    date.toLocaleDateString("en-US", {
       weekday: "short",
     });
   const monthLabel = calendarMonth.toLocaleDateString(
-    locale === "ja" ? "ja-JP" : "en-US",
+    "en-US",
     { year: "numeric", month: "long" },
   );
 
@@ -216,6 +217,7 @@ export default function Home() {
                 </View>
                 <View style={styles.dateControls}>
                   <ScrollView
+                    style={styles.dateScroll}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.dateRow}
@@ -238,7 +240,7 @@ export default function Home() {
                           style={[
                             styles.dateDay,
                             sameDate(selectedDate, date) &&
-                            styles.dateSelectedText,
+                              styles.dateSelectedText,
                           ]}
                         >
                           {weekday(date)}
@@ -247,7 +249,7 @@ export default function Home() {
                           style={[
                             styles.dateNumber,
                             sameDate(selectedDate, date) &&
-                            styles.dateSelectedText,
+                              styles.dateSelectedText,
                           ]}
                         >
                           {date.getDate()}
@@ -322,6 +324,13 @@ export default function Home() {
                         <Text style={styles.monthArrow}>›</Text>
                       </Pressable>
                     </View>
+                    <View style={styles.calendarWeekdays}>
+                      {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                        <View key={`${day}-${index}`} style={styles.calendarWeekday}>
+                          <Text style={styles.calendarWeekdayText}>{day}</Text>
+                        </View>
+                      ))}
+                    </View>
                     <View style={styles.calendarGrid}>
                       {calendarDays(calendarMonth).map((date, index) =>
                         date ? (
@@ -335,14 +344,14 @@ export default function Home() {
                             style={[
                               styles.calendarDay,
                               sameDate(selectedDate, date) &&
-                              styles.calendarDaySelected,
+                                styles.calendarDaySelected,
                             ]}
                           >
                             <Text
                               style={[
                                 styles.calendarDayText,
                                 sameDate(selectedDate, date) &&
-                                styles.calendarDayTextSelected,
+                                  styles.calendarDayTextSelected,
                               ]}
                             >
                               {date.getDate()}
@@ -571,8 +580,8 @@ const styles = StyleSheet.create({
   },
   friendsLinkText: { color: c.primary, fontSize: 10, fontWeight: "800" },
   dateControls: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dateScroll: { flex: 1, minWidth: 0 },
   dateRow: {
-    flexGrow: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -602,10 +611,14 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
-    padding: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 22,
     backgroundColor: "rgba(40,35,60,0.38)",
   },
   calendarCard: {
+    width: "100%",
+    maxWidth: 380,
+    alignSelf: "center",
     padding: 18,
     borderRadius: 22,
     backgroundColor: c.card,
@@ -626,11 +639,19 @@ const styles = StyleSheet.create({
   },
   monthArrow: { color: c.primaryDark, fontSize: 28, lineHeight: 30 },
   monthTitle: { color: c.text, fontSize: 17, fontWeight: "900" },
-  calendarGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  calendarWeekdays: { flexDirection: "row", marginBottom: 2 },
+  calendarWeekday: {
+    width: "14.2857%",
+    minHeight: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarWeekdayText: { color: c.muted, fontSize: 11, fontWeight: "800" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
   calendarDay: {
-    width: "13.4%",
+    width: "14.2857%",
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },

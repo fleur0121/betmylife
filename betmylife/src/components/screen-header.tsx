@@ -1,6 +1,6 @@
 /**
  * 画面上部に固定する共通ヘッダー。
- * 画面名・戻る操作・友達追加・小さなJP／ENスイッチを同じ位置に揃える。
+ * 画面名・戻る操作・友達追加を同じ位置に揃える。
  * ホームでは自分のアバターからプロフィールへ移動できる。
  */
 import { router } from 'expo-router';
@@ -8,7 +8,6 @@ import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './localized-text';
-import { LanguageSwitch } from './language-switch';
 import { palette as c } from '@/constants/design';
 import { useLanguage } from '@/i18n/language';
 import { BrandAsset } from './brand-asset';
@@ -85,7 +84,6 @@ export function ScreenHeader({
         </Pressable>
         </>
       )}
-      <LanguageSwitch compact />
     </View>
   );
 }

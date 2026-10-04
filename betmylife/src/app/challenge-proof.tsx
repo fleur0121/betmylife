@@ -10,6 +10,7 @@ import { getChallengePointChange } from "@/utils/points";
 import type { ChallengeOutcome } from "@/utils/predictions";
 import { palette as c } from "@/constants/design";
 import { BrandAsset } from "@/components/brand-asset";
+import { recordChallengeResult } from "@/services/challenge-service";
 
 export default function ChallengeProofScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -20,12 +21,46 @@ export default function ChallengeProofScreen() {
   const [results, setResults] = useState<boolean[]>([]);
   const [proofMethodsUsed, setProofMethodsUsed] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<ChallengeOutcome | null>(null);
+  const [settling, setSettling] = useState(false);
+  const [settleError, setSettleError] = useState<string | null>(null);
+  const [pendingSettlement, setPendingSettlement] = useState<{ result: ChallengeOutcome; methods: string[] } | null>(null);
   const finished = useRef(false);
   if (!challenge) return <Screen title="Challenge proof" back><Card><Text style={s.muted}>This challenge could not be found.</Text><Button label="Back home" onPress={() => router.replace("/(tabs)")} /></Card></Screen>;
   const rulePointChange = getChallengePointChange(challenge.difficulty, outcome ?? challenge.result ?? "success");
   const settledReason = (outcome ?? challenge.result) === "failed" ? "challenge_failure" : "challenge_success";
   const pointChange = state.transactions.find((item) => item.challengeId === challenge.id && item.reason === settledReason)?.amount ?? rulePointChange;
-  const nextResult = (passed: boolean, method?: string) => {
+  const submitResult = async (result: ChallengeOutcome, methods: string[]) => {
+    if (!state.authUserId) {
+      setSettleError("Log in to save this challenge result.");
+      return;
+    }
+    finished.current = true;
+    setSettling(true);
+    setSettleError(null);
+    try {
+      await recordChallengeResult(state.authUserId, challenge.id, result);
+      const settledAt = new Date().toISOString();
+      setOutcome(result);
+      setProofMethodsUsed(methods);
+      setPendingSettlement(null);
+      dispatch({
+        type: "settle-challenge",
+        challengeId: challenge.id,
+        outcome: result,
+        settledAt,
+        resolvedTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        proofMethodsUsed: methods,
+        aiProofVerified: result === "success" && methods.includes("ai_quiz"),
+      });
+    } catch (error) {
+      finished.current = false;
+      setPendingSettlement({ result, methods });
+      setSettleError(error instanceof Error ? error.message : "Could not save your challenge result.");
+    } finally {
+      setSettling(false);
+    }
+  };
+  const nextResult = async (passed: boolean, method?: string) => {
     if (finished.current || challenge.pointsSettled || challenge.result) return;
     const next = [...results, passed];
     const nextMethods = passed && method ? [...proofMethodsUsed, method] : proofMethodsUsed;
@@ -38,18 +73,10 @@ export default function ChallengeProofScreen() {
     }
     const success = challenge.proofPlan?.logic === "any" ? next.some(Boolean) : next.every(Boolean);
     const result: ChallengeOutcome = success ? "success" : "failed";
-    finished.current = true;
     setResults(next);
     setProofMethodsUsed(nextMethods);
-    setOutcome(result);
-    dispatch({
-      type: "settle-challenge",
-      challengeId: challenge.id,
-      outcome: result,
-      resolvedTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      proofMethodsUsed: nextMethods,
-      aiProofVerified: success && nextMethods.includes("ai_quiz"),
-    });
+    setPendingSettlement({ result, methods: nextMethods });
+    await submitResult(result, nextMethods);
   };
   const settledOutcome = outcome ?? challenge.result;
   return (
@@ -78,17 +105,19 @@ export default function ChallengeProofScreen() {
         </Card>
       ) : requirements.length > 0 ? (
         <>
+          {settleError && <View><Text style={styles.settleError}>{settleError}</Text>{pendingSettlement && <Button secondary label={settling ? "Saving result…" : "Retry saving result"} onPress={() => void submitResult(pendingSettlement.result, pendingSettlement.methods)} />}</View>}
           <View style={styles.stepLabel}><Text style={styles.resultEyebrow}>PROOF RECIPE</Text><Text style={s.caption}>{step + 1} / {requirements.length}</Text></View>
-          <ProofRenderer requirement={requirements[step] as ProofRequirement} onComplete={(result) => nextResult(result.passed, requirements[step]?.method)} />
+          <ProofRenderer requirement={requirements[step] as ProofRequirement} onComplete={(result) => void nextResult(result.passed, requirements[step]?.method)} />
           <Text style={styles.helper}>Your saved Proof Recipe determines whether this challenge succeeds.</Text>
         </>
       ) : (
         <Card>
+          {settleError && <View><Text style={styles.settleError}>{settleError}</Text>{pendingSettlement && <Button secondary label={settling ? "Saving result…" : "Retry saving result"} onPress={() => void submitResult(pendingSettlement.result, pendingSettlement.methods)} />}</View>}
           <Text style={s.sectionTitle}>SELF CHECK-IN ✦</Text>
           <Text style={s.muted}>This challenge has no saved Proof Recipe, so this demo uses your check-in as its result.</Text>
           <View style={styles.actions}>
-            <Button label="I completed it ✓" onPress={() => nextResult(true)} />
-            <Button secondary label="I missed this one" onPress={() => nextResult(false)} />
+            <Button label={settling ? "Saving result…" : "I completed it ✓"} onPress={() => void nextResult(true)} />
+            <Button secondary label={settling ? "Saving result…" : "I missed this one"} onPress={() => void nextResult(false)} />
           </View>
         </Card>
       )}
@@ -110,5 +139,6 @@ const styles = StyleSheet.create({
   resultNote: { color: c.muted, textAlign: "center", fontSize: 10, marginVertical: 12 },
   stepLabel: { flexDirection: "row", justifyContent: "space-between", marginBottom: 10 },
   helper: { color: c.muted, fontSize: 10, textAlign: "center", marginTop: 10 },
+  settleError: { color: c.red, fontSize: 12, fontWeight: "700", marginBottom: 10 },
   actions: { width: "100%", gap: 9, marginTop: 12 },
 });

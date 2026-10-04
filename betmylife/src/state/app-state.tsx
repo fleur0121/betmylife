@@ -1,17 +1,10 @@
 /** Shared app state, persisted after login and reconciled with the badge engine. */
 import { evaluateAchievements, newlyEligibleBadges } from "@/achievements/engine";
 import { BADGE_METADATA, type BadgeId } from "@/achievements/badge-metadata";
-import {
-  challenges,
-  initialCosmetics,
-  initialWallet,
-  rewards,
-  type Challenge,
-  type CosmeticSlot,
-  type Prediction,
-  type PredictionChoice,
-} from "@/mock/data";
-import { friendDirectory, initialFriendIds, myFriendId } from "@/mock/friends";
+import { rewards } from "@/constants/rewards";
+import type { CosmeticSlot } from "@/constants/rewards";
+import type { Challenge, Prediction, PredictionChoice } from "@/mock/data";
+import { friendDirectory, myFriendId } from "@/mock/friends";
 import {
   getPredictionLockAt,
   isChallengeExpired,
@@ -23,7 +16,6 @@ import {
   type ChallengeOutcome,
 } from "@/utils/predictions";
 import { getChallengePointChange } from "@/utils/points";
-import { recordChallengeResult } from "@/services/ml-observation-service";
 import { createContext, useContext, useEffect, useReducer, useRef, useState, type PropsWithChildren } from "react";
 import { API_URL } from "@/constants/api";
 
@@ -77,17 +69,17 @@ type Action =
 
 export const initialState: State = {
   authUserId: null,
-  friendIds: initialFriendIds,
+  friendIds: [],
   followingIds: [],
-  challenges,
+  challenges: [],
   predictions: {},
   stakedPredictions: {},
-  wallet: initialWallet,
-  pointsBalance: initialWallet,
+  wallet: 0,
+  pointsBalance: 0,
   lifetimePointsEarned: 0,
   transactions: [],
   owned: [],
-  equipped: initialCosmetics,
+  equipped: { Frame: "", Title: "", Badge: "", Background: "" },
   badgeUnlocks: {},
   pendingBadgeClaims: [],
   pendingBadgeToasts: [],
@@ -104,7 +96,6 @@ function toAchievementInput(state: State) {
     transactions: state.transactions,
     unlockedBadgeIds: Object.keys(state.badgeUnlocks),
     currentUserId: state.authUserId,
-    currentUserName: "Fuka",
   };
 }
 
@@ -300,25 +291,17 @@ export function appReducer(state: State, action: Action): State {
         challenges: [{ ...action.challenge, ownerId: state.authUserId ?? undefined, createdAt: action.challenge.createdAt ?? new Date().toISOString() }, ...state.challenges],
       });
     case "replace-challenges": {
-      const localById = new Map(state.challenges.map((challenge) => [challenge.id, challenge]));
+      const previous = new Map(state.challenges.map((challenge) => [challenge.id, challenge]));
       const challenges = action.challenges.map((challenge) => {
-        const local = localById.get(challenge.id);
-        return {
-          ...challenge,
-          ownerId: challenge.ownerId ?? local?.ownerId ?? state.authUserId ?? undefined,
-          result: challenge.result ?? local?.result,
-          pointsSettled: challenge.pointsSettled ?? local?.pointsSettled,
-          resolvedAt: challenge.resolvedAt ?? local?.resolvedAt,
-          resolvedTimezone: challenge.resolvedTimezone ?? local?.resolvedTimezone,
-          proofMethodsUsed: challenge.proofMethodsUsed ?? local?.proofMethodsUsed,
-          aiProofVerified: challenge.aiProofVerified ?? local?.aiProofVerified,
-        };
+        const saved = previous.get(challenge.id);
+        return saved ? { ...saved, ...challenge, result: saved.result, pointsSettled: saved.pointsSettled, resolvedAt: saved.resolvedAt, resolvedTimezone: saved.resolvedTimezone, proofMethodsUsed: saved.proofMethodsUsed, aiProofVerified: saved.aiProofVerified } : challenge;
       });
       return finalizeTransition(state, { ...state, challenges });
     }
     case "delete": {
-      const nextChallenges = state.challenges.filter((challenge) => challenge.id !== action.id || challenge.user !== "Fuka");
-      if (nextChallenges.length === state.challenges.length) return state;
+      const challenge = state.challenges.find((item) => item.id === action.id);
+      if (!challenge || !state.authUserId || challenge.ownerId !== state.authUserId) return state;
+      const nextChallenges = state.challenges.filter((item) => item.id !== action.id);
       const predictions = { ...state.predictions };
       delete predictions[action.id];
       const result = voidChallengePredictions(state.stakedPredictions, action.id);
@@ -358,9 +341,6 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const claimsInFlight = useRef(new Set<BadgeId>());
-  const observationSyncInFlight = useRef(new Set<string>());
-  const syncedObservations = useRef(new Set<string>());
-  const observationRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const userId = state.authUserId;
@@ -426,36 +406,6 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [state, hydratedUserId, retry]);
-
-  useEffect(() => {
-    const userId = state.authUserId;
-    if (!userId || hydratedUserId !== userId) return;
-
-    for (const challenge of state.challenges) {
-      if (challenge.ownerId !== userId || !challenge.result) continue;
-      const syncId = `${userId}:${challenge.id}`;
-      if (
-        syncedObservations.current.has(syncId) ||
-        observationSyncInFlight.current.has(syncId)
-      ) continue;
-
-      observationSyncInFlight.current.add(syncId);
-      void recordChallengeResult(userId, challenge.id, challenge.result)
-        .then(() => syncedObservations.current.add(syncId))
-        .catch(() => {
-          if (observationRetryTimer.current) return;
-          observationRetryTimer.current = setTimeout(() => {
-            observationRetryTimer.current = null;
-            setRetry((value) => value + 1);
-          }, 5000);
-        })
-        .finally(() => observationSyncInFlight.current.delete(syncId));
-    }
-  }, [state.authUserId, state.challenges, hydratedUserId, retry]);
-
-  useEffect(() => () => {
-    if (observationRetryTimer.current) clearTimeout(observationRetryTimer.current);
-  }, []);
 
   useEffect(() => {
     const userId = state.authUserId;
