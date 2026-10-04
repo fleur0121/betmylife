@@ -1,0 +1,40 @@
+services:
+  api:
+    build:
+      context: ./betmylife
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./betmylife/backend/.env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - ./betmylife/backend:/app
+      - /etc/ssl/cert.pem:/etc/ssl/cert.pem:ro
+    command: sh -c "python -c 'from db import init_db; init_db()' && exec uvicorn main:app --host 0.0.0.0 --port 8000"
+
+  app:
+    build:
+      context: ./betmylife
+    restart: unless-stopped
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://172.16.194.231:8000}
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-localhost}
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "${EXPO_PORT:-8081}:8081"
+    volumes:
+      - ./betmylife/src:/app/src
+      - ./betmylife/assets:/app/assets

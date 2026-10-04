@@ -1,3 +1,7 @@
+/**
+ * スターターのExpoバージョンとロゴを表示するバッジ。
+ * 端末のカラースキームに合わせてロゴ画像を切り替える。
+ */
 import { version } from 'expo/package.json';
 import { Image } from 'expo-image';
 import { useColorScheme, StyleSheet } from 'react-native';

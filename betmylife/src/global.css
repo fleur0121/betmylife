@@ -1,3 +1,7 @@
+/**
+ * Web用フォントのCSSカスタムプロパティを定義する。
+ * スターターのtheme.tsから読み込み、端末に存在するフォントへ順番にフォールバックする。
+ */
 :root {
   --font-display:
     Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,

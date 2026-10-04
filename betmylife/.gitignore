@@ -2,6 +2,8 @@
 
 # dependencies
 node_modules/
+__pycache__/
+*.pyc
 
 # Expo
 .expo/
@@ -41,3 +43,8 @@ example
 # generated native folders
 /ios
 /android
+
+
+backend/.env
+backend/*.pem
+backend/.venv/

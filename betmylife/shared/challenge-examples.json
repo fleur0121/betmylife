@@ -1,0 +1,1586 @@
+[
+  {
+    "id": "sleep-minimum",
+    "text": "Sleep for at least 7 hours",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Sleep for at least 7 hours",
+          "action": "Sleep for at least 7 hours",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "duration",
+          "measurements": [
+            {
+              "original": "at least 7 hours",
+              "metric": "sleep_duration",
+              "value": 7,
+              "unit": "hours",
+              "operator": "gte"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "sleep",
+          "subcategory": "duration",
+          "measurements": [
+            {
+              "metric": "sleep_duration",
+              "operator": "gte",
+              "value": 25200,
+              "unit": "s"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "bedtime",
+    "text": "Go to bed by 11 pm",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Go to bed by 11 pm",
+          "action": "Go to bed by 11 pm",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "by 11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "event",
+              "operator": "lte",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "times": [
+            {
+              "clock_time": "23:00",
+              "date": null,
+              "operator": "lte"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "sleep-onset",
+    "text": "Fall asleep before 11 pm",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Fall asleep before 11 pm",
+          "action": "Fall asleep before 11 pm",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "sleep_onset",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "before 11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "event",
+              "operator": "lt",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "sleep_onset",
+          "times": [
+            {
+              "clock_time": "23:00",
+              "operator": "lt"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "ambiguous-sleep",
+    "text": "Sleep by 11 pm",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Sleep by 11 pm",
+          "action": "Sleep by 11 pm",
+          "object": null,
+          "category": "sleep",
+          "subcategory": null,
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "by 11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "event",
+              "operator": "lte",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": [
+            "Do you mean getting into bed or falling asleep by 11 pm?"
+          ]
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "sleep",
+          "subcategory": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "overnight-bed",
+    "text": "Be in bed from 11 pm tonight to 7 am",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Be in bed from 11 pm tonight to 7 am",
+          "action": "Be in bed from 11 pm tonight to 7 am",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "11 pm tonight",
+              "clock_time": "23:00",
+              "date_text": "tonight",
+              "kind": "interval_start",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            },
+            {
+              "original": "7 am",
+              "clock_time": "07:00",
+              "date_text": null,
+              "kind": "interval_end",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "bedtime",
+          "measurements": [],
+          "times": [
+            {
+              "date": "2026-10-03",
+              "weekday": "saturday",
+              "clock_time": "23:00"
+            },
+            {
+              "date": "2026-10-04",
+              "weekday": "sunday",
+              "clock_time": "07:00",
+              "day_offset": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "overnight-unanchored",
+    "text": "Be in bed from 11 pm to 7 am",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Be in bed from 11 pm to 7 am",
+          "action": "Be in bed from 11 pm to 7 am",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "interval_start",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            },
+            {
+              "original": "7 am",
+              "clock_time": "07:00",
+              "date_text": null,
+              "kind": "interval_end",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "measurements": [],
+          "times": [
+            {
+              "date": null
+            },
+            {
+              "date": null,
+              "day_offset": 1
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wake-tomorrow",
+    "text": "Wake up at 7 am tomorrow",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Wake up at 7 am tomorrow",
+          "action": "Wake up at 7 am tomorrow",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "wake_up",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "at 7 am tomorrow",
+              "clock_time": "07:00",
+              "date_text": "tomorrow",
+              "kind": "event",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "wake_up",
+          "times": [
+            {
+              "date": "2026-10-04",
+              "weekday": "sunday",
+              "resolved_at": "2026-10-04T07:00:00-07:00"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "wake-vs-leave",
+    "text": "Wake up at 7 am tomorrow and get out of bed by 7:15 am tomorrow",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Wake up at 7 am tomorrow",
+          "action": "Wake up at 7 am tomorrow",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "wake_up",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "at 7 am tomorrow",
+              "clock_time": "07:00",
+              "date_text": "tomorrow",
+              "kind": "event",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        },
+        {
+          "original": "get out of bed by 7:15 am tomorrow",
+          "action": "get out of bed by 7:15 am tomorrow",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "get_out_of_bed",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "by 7:15 am tomorrow",
+              "clock_time": "07:15",
+              "date_text": "tomorrow",
+              "kind": "event",
+              "operator": "lte",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "wake_up"
+        },
+        {
+          "subcategory": "get_out_of_bed"
+        }
+      ]
+    }
+  },
+  {
+    "id": "daily-week",
+    "text": "Go to bed at 11 pm every day for a week",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Go to bed at 11 pm every day for a week",
+          "action": "Go to bed at 11 pm every day for a week",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "at 11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "event",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": {
+            "original": "every day",
+            "count": 1,
+            "per": "day"
+          },
+          "challenge_period": {
+            "original": "for a week",
+            "value": 1,
+            "unit": "week"
+          },
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "bedtime",
+          "frequency": {
+            "count": 1,
+            "per": "day"
+          },
+          "challenge_period": {
+            "value": 1,
+            "unit": "week"
+          },
+          "measurements": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "nap",
+    "text": "Take a nap for at most 20 minutes",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Take a nap for at most 20 minutes",
+          "action": "Take a nap for at most 20 minutes",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "nap",
+          "measurements": [
+            {
+              "original": "at most 20 minutes",
+              "metric": "sleep_duration",
+              "value": 20,
+              "unit": "minutes",
+              "operator": "lte"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "nap",
+          "measurements": [
+            {
+              "value": 1200,
+              "unit": "s",
+              "operator": "lte",
+              "metric": "sleep_duration"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "multiple-actions",
+    "text": "Read for 10 minutes and go to bed by 11 pm",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Read for 10 minutes",
+          "action": "Read for 10 minutes",
+          "object": null,
+          "category": "reading",
+          "subcategory": null,
+          "measurements": [
+            {
+              "original": "10 minutes",
+              "metric": "activity_duration",
+              "value": 10,
+              "unit": "minutes",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": [
+            "Will you read a book or an article?"
+          ]
+        },
+        {
+          "original": "go to bed by 11 pm",
+          "action": "go to bed by 11 pm",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "by 11 pm",
+              "clock_time": "23:00",
+              "date_text": null,
+              "kind": "event",
+              "operator": "lte",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "reading",
+          "subcategory": null,
+          "measurements": [
+            {
+              "value": 600,
+              "unit": "s"
+            }
+          ]
+        },
+        {
+          "subcategory": "bedtime"
+        }
+      ]
+    }
+  },
+  {
+    "id": "action-not-topic",
+    "text": "Read a book about cooking",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Read a book about cooking",
+          "action": "Read a book about cooking",
+          "object": "a book about cooking",
+          "category": "reading",
+          "subcategory": "book",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "reading",
+          "subcategory": "book"
+        }
+      ]
+    }
+  },
+  {
+    "id": "distance-km",
+    "text": "Run 5 km",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Run 5 km",
+          "action": "Run 5 km",
+          "object": null,
+          "category": "exercise",
+          "subcategory": "running",
+          "measurements": [
+            {
+              "original": "5 km",
+              "metric": "distance",
+              "value": 5,
+              "unit": "km",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "running",
+          "measurements": [
+            {
+              "value": 5000,
+              "unit": "m"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "distance-kilometers",
+    "text": "Run 5 kilometers",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Run 5 kilometers",
+          "action": "Run 5 kilometers",
+          "object": null,
+          "category": "exercise",
+          "subcategory": "running",
+          "measurements": [
+            {
+              "original": "5 kilometers",
+              "metric": "distance",
+              "value": 5,
+              "unit": "kilometers",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "running",
+          "measurements": [
+            {
+              "value": 5000,
+              "unit": "m"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "distance-meters",
+    "text": "Run 5,000 meters",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Run 5,000 meters",
+          "action": "Run 5,000 meters",
+          "object": null,
+          "category": "exercise",
+          "subcategory": "running",
+          "measurements": [
+            {
+              "original": "5,000 meters",
+              "metric": "distance",
+              "value": 5000,
+              "unit": "meters",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "running",
+          "measurements": [
+            {
+              "value": 5000,
+              "unit": "m"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "distance-and-duration",
+    "text": "Run 5 km in under 30 minutes",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Run 5 km in under 30 minutes",
+          "action": "Run 5 km in under 30 minutes",
+          "object": null,
+          "category": "exercise",
+          "subcategory": "running",
+          "measurements": [
+            {
+              "original": "5 km",
+              "metric": "distance",
+              "value": 5,
+              "unit": "km",
+              "operator": "eq"
+            },
+            {
+              "original": "under 30 minutes",
+              "metric": "activity_duration",
+              "value": 30,
+              "unit": "minutes",
+              "operator": "lt"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "measurements": [
+            {
+              "metric": "distance",
+              "value": 5000
+            },
+            {
+              "metric": "activity_duration",
+              "value": 1800,
+              "operator": "lt"
+            }
+          ],
+          "times": []
+        }
+      ]
+    }
+  },
+  {
+    "id": "distance-and-deadline",
+    "text": "Run 5 km by 6 pm",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Run 5 km by 6 pm",
+          "action": "Run 5 km by 6 pm",
+          "object": null,
+          "category": "exercise",
+          "subcategory": "running",
+          "measurements": [
+            {
+              "original": "5 km",
+              "metric": "distance",
+              "value": 5,
+              "unit": "km",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "by 6 pm",
+              "clock_time": "18:00",
+              "date_text": null,
+              "kind": "deadline",
+              "operator": "lte",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "measurements": [
+            {
+              "metric": "distance",
+              "value": 5000
+            }
+          ],
+          "times": [
+            {
+              "kind": "deadline",
+              "clock_time": "18:00"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "no-confidence-inference",
+    "text": "I will definitely sleep for 7 hours",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "I will definitely sleep for 7 hours",
+          "action": "I will definitely sleep for 7 hours",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "duration",
+          "measurements": [
+            {
+              "original": "7 hours",
+              "metric": "sleep_duration",
+              "value": 7,
+              "unit": "hours",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "user_reported": {
+        "confidence_percent": null
+      }
+    }
+  },
+  {
+    "id": "other",
+    "text": "Water my plants",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Water my plants",
+          "action": "Water my plants",
+          "object": "my plants",
+          "category": "other",
+          "subcategory": "other",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "category": "other",
+          "subcategory": "other"
+        }
+      ]
+    }
+  },
+  {
+    "id": "next-morning",
+    "text": "Go to bed at 11 pm tonight and wake up at 7 am the next morning",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Go to bed at 11 pm tonight",
+          "action": "Go to bed at 11 pm tonight",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "at 11 pm tonight",
+              "clock_time": "23:00",
+              "date_text": "tonight",
+              "kind": "event",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        },
+        {
+          "original": "wake up at 7 am the next morning",
+          "action": "wake up at 7 am the next morning",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "wake_up",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [
+            {
+              "original": "at 7 am the next morning",
+              "clock_time": "07:00",
+              "date_text": "next morning",
+              "kind": "event",
+              "operator": "eq",
+              "date": null,
+              "weekday": null,
+              "timezone": null,
+              "day_offset": null,
+              "resolved_at": null
+            }
+          ],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "times": [
+            {
+              "date": "2026-10-03"
+            }
+          ]
+        },
+        {
+          "times": [
+            {
+              "date": "2026-10-04"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "time-in-bed-duration",
+    "text": "Stay in bed for 8 hours",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Stay in bed for 8 hours",
+          "action": "Stay in bed for 8 hours",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "bedtime",
+          "measurements": [
+            {
+              "original": "8 hours",
+              "metric": "time_in_bed",
+              "value": 8,
+              "unit": "hours",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "bedtime",
+          "measurements": [
+            {
+              "metric": "time_in_bed",
+              "value": 28800,
+              "unit": "s"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "regularity",
+    "text": "Keep my bedtime within 15 minutes of the same time each day",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Keep my bedtime within 15 minutes of the same time each day",
+          "action": "Keep my bedtime within 15 minutes of the same time each day",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "regularity",
+          "measurements": [
+            {
+              "original": "within 15 minutes",
+              "metric": "regularity_tolerance",
+              "value": 15,
+              "unit": "minutes",
+              "operator": "lte"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": {
+            "original": "each day",
+            "count": 1,
+            "per": "day"
+          },
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "regularity",
+          "measurements": [
+            {
+              "metric": "regularity_tolerance",
+              "value": 900,
+              "operator": "lte"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "pre-sleep",
+    "text": "Do a wind-down routine for 10 minutes to prepare for sleep",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Do a wind-down routine for 10 minutes to prepare for sleep",
+          "action": "Do a wind-down routine for 10 minutes to prepare for sleep",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "pre_sleep_routine",
+          "measurements": [
+            {
+              "original": "10 minutes",
+              "metric": "activity_duration",
+              "value": 10,
+              "unit": "minutes",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "pre_sleep_routine",
+          "measurements": [
+            {
+              "metric": "activity_duration",
+              "value": 600
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "sleep-weather",
+    "text": "Take a nap outdoors only if it is sunny",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Take a nap outdoors only if it is sunny",
+          "action": "Take a nap outdoors only if it is sunny",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "nap",
+          "measurements": [],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": "outdoor",
+            "weather_requirement": "only if it is sunny"
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "subcategory": "nap",
+          "conditions": {
+            "indoor_outdoor": "outdoor",
+            "weather_requirement": "only if it is sunny"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "reported-numerical",
+    "text": "Sleep for 7 hours. This is hard; I am 80% confident",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Sleep for 7 hours",
+          "action": "Sleep for 7 hours",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "duration",
+          "measurements": [
+            {
+              "original": "7 hours",
+              "metric": "sleep_duration",
+              "value": 7,
+              "unit": "hours",
+              "operator": "eq"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": "hard",
+        "confidence_percent": 80,
+        "confidence_original": "80% confident"
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "user_reported": {
+        "difficulty": "hard",
+        "confidence_percent": 80,
+        "confidence_original": "80% confident"
+      }
+    }
+  },
+  {
+    "id": "number-words",
+    "text": "Sleep for at least seven hours",
+    "submitted_at": "2026-10-03T12:00:00-07:00",
+    "timezone": "America/Vancouver",
+    "fixture": {
+      "actions": [
+        {
+          "original": "Sleep for at least seven hours",
+          "action": "Sleep for at least seven hours",
+          "object": null,
+          "category": "sleep",
+          "subcategory": "duration",
+          "measurements": [
+            {
+              "original": "at least seven hours",
+              "metric": "sleep_duration",
+              "value": 7,
+              "unit": "hours",
+              "operator": "gte"
+            }
+          ],
+          "completion_condition": null,
+          "times": [],
+          "frequency": null,
+          "challenge_period": null,
+          "conditions": {
+            "indoor_outdoor": null,
+            "weather_requirement": null
+          },
+          "clarification_questions": []
+        }
+      ],
+      "user_reported": {
+        "difficulty": null,
+        "confidence_percent": null,
+        "confidence_original": null
+      },
+      "clarification_questions": []
+    },
+    "expected": {
+      "actions": [
+        {
+          "measurements": [
+            {
+              "value": 25200,
+              "unit": "s",
+              "operator": "gte"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

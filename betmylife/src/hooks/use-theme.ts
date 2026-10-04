@@ -1,4 +1,8 @@
 /**
+ * 端末のカラースキームからスターター用の色テーマを取得するフック。
+ * 未指定の場合はlightを選び、ThemedTextやThemedViewに共通の色を渡す。
+ */
+/**
  * Learn more about light and dark modes:
  * https://docs.expo.dev/guides/color-schemes/
  */

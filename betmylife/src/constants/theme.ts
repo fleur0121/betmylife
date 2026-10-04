@@ -1,4 +1,8 @@
 /**
+ * 既存Expoスターター用の色・フォント・余白の定義。
+ * ライト／ダーク両テーマと端末別フォントを管理する。新しいアプリUIはdesign.tsを使用する。
+ */
+/**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
  */

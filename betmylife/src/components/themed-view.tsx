@@ -1,3 +1,7 @@
+/**
+ * スターター用のテーマ対応View。
+ * useThemeから背景色を選び、呼び出し側のstyleを重ねて表示する。
+ */
 import { View, type ViewProps } from 'react-native';
 
 import { ThemeColor } from '@/constants/theme';

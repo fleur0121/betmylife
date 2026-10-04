@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * プロジェクトを空のスターターへ戻す開発補助スクリプト。
+ * ユーザーの選択に応じてsrcとscriptsをexampleへ退避または削除し、最小構成の画面を生成する。
+ * 実行すると現在のアプリ構成が置き換わるため、通常の起動には使用しない。
+ */
 
 /**
  * This script is used to reset the project to a blank state.

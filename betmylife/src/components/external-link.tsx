@@ -1,3 +1,7 @@
+/**
+ * 外部サイトへのリンクを端末に合わせて開くコンポーネント。
+ * Webでは新しいタブ、モバイルではアプリ内ブラウザーを利用する。
+ */
 import { Href, Link } from 'expo-router';
 import { openBrowserAsync, WebBrowserPresentationStyle } from 'expo-web-browser';
 import { type ComponentProps } from 'react';
