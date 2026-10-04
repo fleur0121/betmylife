@@ -79,9 +79,9 @@ export default function Profile() {
           <Text translate={false} style={styles.name}>{nickname || "Loading…"}<Text style={styles.verified}> ✦</Text></Text>
           <Text translate={false} style={styles.handle}>@{myFriendId} · making little promises, keeping big dreams</Text>
           <View style={styles.titleLine}>
-            <BrandAsset name="badgeAiSlayer" style={styles.titleArt} />
-            <View style={styles.titleInfo}><Text style={styles.titleLabel}>EQUIPPED TITLE</Text><Text style={styles.titleValue}>{state.equipped.Title}</Text></View>
-            <View style={styles.badgeCount}><Text style={styles.badgeCountValue}>12</Text><Text style={styles.badgeCountLabel}>BADGES</Text></View>
+            <BrandAsset name="stickerSmallSteps" style={styles.titleArt} />
+            <View style={styles.titleInfo}><Text style={styles.titleLabel}>YOUR PROFILE TITLE</Text><Text style={styles.titleValue}>{state.equipped.Title}</Text></View>
+            <View style={styles.badgeCount}><Text style={styles.badgeCountValue}>{state.owned.length}</Text><Text style={styles.badgeCountLabel}>OWNED ITEMS</Text></View>
           </View>
         </View>
       </View>
@@ -183,7 +183,10 @@ export default function Profile() {
 
           <Pressable accessibilityRole="button" onPress={() => router.push("/shop")} style={({ pressed }) => [styles.collectionLink, pressed && s.pressed]}>
             <BrandAsset name="iconShop" style={styles.collectionIcon} />
-            <View style={s.flex}><Text style={styles.collectionTitle}>Make this profile yours</Text><Text style={styles.collectionCopy}>Frames, badges & little bits of magic</Text></View>
+            <View style={s.flex}>
+              <Text style={styles.collectionTitle}>Make this profile yours</Text>
+              <Text style={styles.collectionCopy}>Frames, badges & little bits of magic</Text>
+            </View>
             <Text style={styles.journeyLink}>SHOP →</Text>
           </Pressable>
 
@@ -322,6 +325,8 @@ const styles = StyleSheet.create({
   collectionIcon: { width: 42, height: 42 },
   collectionTitle: { color: c.text, fontSize: 12, fontWeight: "900" },
   collectionCopy: { marginTop: 2, color: c.muted, fontSize: 9 },
+  comingSoonCard: { flexDirection: "row", alignItems: "center", gap: 9, padding: 12, borderRadius: 18, backgroundColor: c.cream, opacity: 0.85 },
+  comingSoonLabel: { color: c.primary, fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   recentList: { gap: 9 },
   recentCard: { minHeight: 91, padding: 11, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: c.border, borderRadius: 18, backgroundColor: c.card },
   recentIconWrap: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center" },

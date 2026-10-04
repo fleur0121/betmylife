@@ -1,5 +1,29 @@
 # Backend
 
+Docker is configured to use TiDB Cloud as the only database. No local MySQL
+container is started.
+
+## Docker + TiDB Cloud
+
+Run this from the repository root. The command reads the existing
+`betmylife/backend/.env` file without copying its password into Git-managed
+files:
+
+```sh
+docker compose up --build api
+```
+
+For iOS physical-device testing, set the Mac LAN address before starting:
+
+```sh
+EXPO_PUBLIC_API_URL=http://172.16.194.231:8000 \
+docker compose up --build api
+```
+
+The iPhone and Mac must be on the same Wi-Fi network. The CA path in
+`backend/.env` must also be mounted into the container; on macOS the default
+`/etc/ssl/cert.pem` path is used.
+
 ## TiDB setup
 
 ```sh
