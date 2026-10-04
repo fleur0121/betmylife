@@ -97,7 +97,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
                 : challenge.proofPlan.requirements[0]?.method === "timer"
                   ? "Timer proof"
                   : challenge.proofPlan.requirements[0]?.method ===
-                      "self_report"
+                    "self_report"
                     ? "Self report"
                     : "✦ Proof Plan"}
             </Pill>

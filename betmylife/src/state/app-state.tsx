@@ -23,6 +23,7 @@ import {
   type ChallengeOutcome,
 } from "@/utils/predictions";
 import { getChallengePointChange } from "@/utils/points";
+import { recordChallengeResult } from "@/services/ml-observation-service";
 import { createContext, useContext, useEffect, useReducer, useRef, useState, type PropsWithChildren } from "react";
 import { API_URL } from "@/constants/api";
 
@@ -298,8 +299,23 @@ export function appReducer(state: State, action: Action): State {
         ...state,
         challenges: [{ ...action.challenge, ownerId: state.authUserId ?? undefined, createdAt: action.challenge.createdAt ?? new Date().toISOString() }, ...state.challenges],
       });
-    case "replace-challenges":
-      return finalizeTransition(state, { ...state, challenges: action.challenges });
+    case "replace-challenges": {
+      const localById = new Map(state.challenges.map((challenge) => [challenge.id, challenge]));
+      const challenges = action.challenges.map((challenge) => {
+        const local = localById.get(challenge.id);
+        return {
+          ...challenge,
+          ownerId: challenge.ownerId ?? local?.ownerId ?? state.authUserId ?? undefined,
+          result: challenge.result ?? local?.result,
+          pointsSettled: challenge.pointsSettled ?? local?.pointsSettled,
+          resolvedAt: challenge.resolvedAt ?? local?.resolvedAt,
+          resolvedTimezone: challenge.resolvedTimezone ?? local?.resolvedTimezone,
+          proofMethodsUsed: challenge.proofMethodsUsed ?? local?.proofMethodsUsed,
+          aiProofVerified: challenge.aiProofVerified ?? local?.aiProofVerified,
+        };
+      });
+      return finalizeTransition(state, { ...state, challenges });
+    }
     case "delete": {
       const nextChallenges = state.challenges.filter((challenge) => challenge.id !== action.id || challenge.user !== "Fuka");
       if (nextChallenges.length === state.challenges.length) return state;
@@ -342,6 +358,9 @@ export function AppProvider({ children }: PropsWithChildren) {
   const [savedUserId, setSavedUserId] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
   const claimsInFlight = useRef(new Set<BadgeId>());
+  const observationSyncInFlight = useRef(new Set<string>());
+  const syncedObservations = useRef(new Set<string>());
+  const observationRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const userId = state.authUserId;
@@ -407,6 +426,36 @@ export function AppProvider({ children }: PropsWithChildren) {
       if (retryTimer) clearTimeout(retryTimer);
     };
   }, [state, hydratedUserId, retry]);
+
+  useEffect(() => {
+    const userId = state.authUserId;
+    if (!userId || hydratedUserId !== userId) return;
+
+    for (const challenge of state.challenges) {
+      if (challenge.ownerId !== userId || !challenge.result) continue;
+      const syncId = `${userId}:${challenge.id}`;
+      if (
+        syncedObservations.current.has(syncId) ||
+        observationSyncInFlight.current.has(syncId)
+      ) continue;
+
+      observationSyncInFlight.current.add(syncId);
+      void recordChallengeResult(userId, challenge.id, challenge.result)
+        .then(() => syncedObservations.current.add(syncId))
+        .catch(() => {
+          if (observationRetryTimer.current) return;
+          observationRetryTimer.current = setTimeout(() => {
+            observationRetryTimer.current = null;
+            setRetry((value) => value + 1);
+          }, 5000);
+        })
+        .finally(() => observationSyncInFlight.current.delete(syncId));
+    }
+  }, [state.authUserId, state.challenges, hydratedUserId, retry]);
+
+  useEffect(() => () => {
+    if (observationRetryTimer.current) clearTimeout(observationRetryTimer.current);
+  }, []);
 
   useEffect(() => {
     const userId = state.authUserId;

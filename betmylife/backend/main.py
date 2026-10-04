@@ -5,7 +5,9 @@ import hmac
 import json
 import secrets
 import uuid
+from datetime import datetime, timezone
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -166,14 +168,21 @@ class ChallengeCreateRequest(BaseModel):
     probability: float = Field(ge=0, le=100)
     yes_odds: float = Field(gt=0)
     no_odds: float = Field(gt=0)
+    user_input: dict | None = None
     analysis: dict | None = None
     proof_plan: dict | None = None
+
+
+class ChallengeResultRequest(BaseModel):
+    outcome: Literal["success", "failed"]
 
 
 class ChallengeResponse(ChallengeCreateRequest):
     id: str
     user_id: str
     created_at: str
+    result: Literal["success", "failed"] | None = None
+    resolved_at: str | None = None
 
 
 def is_profile_complete(user: dict) -> bool:
@@ -228,6 +237,92 @@ def _state_data(value: object) -> dict:
 
 def _timestamp(value: object) -> str:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
+
+
+def _json_object(value: object) -> dict:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, (str, bytes, bytearray)):
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _stored_text(value: object, max_length: int = 40) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip()
+    return normalized if normalized and len(normalized) <= max_length else None
+
+
+def _action_target_hour(action: dict, analysis: dict, challenge: dict) -> int | None:
+    times = action.get("times")
+    if isinstance(times, list):
+        ordered_times = sorted(
+            (item for item in times if isinstance(item, dict)),
+            key=lambda item: item.get("kind") != "event",
+        )
+        for item in ordered_times:
+            resolved_at = item.get("resolved_at")
+            if isinstance(resolved_at, str):
+                try:
+                    return datetime.fromisoformat(
+                        resolved_at.replace("Z", "+00:00")
+                    ).hour
+                except ValueError:
+                    pass
+            clock_time = item.get("clock_time")
+            if isinstance(clock_time, str):
+                for time_format in ("%H:%M", "%I:%M %p", "%I:%M%p"):
+                    try:
+                        return datetime.strptime(clock_time.strip(), time_format).hour
+                    except ValueError:
+                        continue
+
+    deadline_at = challenge.get("deadline_at")
+    if deadline_at is None:
+        return None
+    analysis_data = analysis.get("data")
+    context = analysis_data.get("context") if isinstance(analysis_data, dict) else {}
+    context = context if isinstance(context, dict) else {}
+    user_input = _json_object(challenge.get("user_input_json"))
+    timezone_name = context.get("timezone") or user_input.get("timezone")
+    try:
+        zone = ZoneInfo(timezone_name) if isinstance(timezone_name, str) else timezone.utc
+    except ZoneInfoNotFoundError:
+        return None
+    return deadline_at.replace(tzinfo=timezone.utc).astimezone(zone).hour
+
+
+def _observation_features(challenge: dict) -> dict:
+    analysis = _json_object(challenge.get("analysis_json"))
+    analysis_data = analysis.get("data")
+    actions = analysis_data.get("actions") if isinstance(analysis_data, dict) else None
+    action = next(
+        (item for item in actions if isinstance(item, dict)),
+        {},
+    ) if isinstance(actions, list) else {}
+
+    measurements = action.get("measurements")
+    measurement = next(
+        (
+            item
+            for item in measurements
+            if isinstance(item, dict) and isinstance(item.get("value"), (int, float))
+        ),
+        {},
+    ) if isinstance(measurements, list) else {}
+    conditions = action.get("conditions")
+    conditions = conditions if isinstance(conditions, dict) else {}
+
+    return {
+        "category": _stored_text(action.get("category")) or "other",
+        "subcategory": _stored_text(action.get("subcategory")),
+        "goal": measurement.get("value"),
+        "goal_unit": _stored_text(measurement.get("unit")),
+        "target_hour": _action_target_hour(action, analysis, challenge),
+        "weather": _stored_text(conditions.get("weather_requirement")),
+    }
 
 def gemini_client() -> genai.Client:
     if not os.getenv("GEMINI_API_KEY"):
@@ -422,9 +517,12 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         visibility=row["visibility"], deadline_at=row["deadline_at"].isoformat(),
         deadline_label=row["deadline_label"], probability=float(row["probability"]),
         yes_odds=float(row["yes_odds"]), no_odds=float(row["no_odds"]),
+        user_input=json.loads(row["user_input_json"]) if isinstance(row.get("user_input_json"), str) else row.get("user_input_json"),
         analysis=json.loads(row["analysis_json"]) if isinstance(row["analysis_json"], str) else row["analysis_json"],
         proof_plan=json.loads(row["proof_plan_json"]) if isinstance(row["proof_plan_json"], str) else row["proof_plan_json"],
         created_at=row["created_at"].isoformat(),
+        result=row.get("result"),
+        resolved_at=_timestamp(row["resolved_at"]) if row.get("resolved_at") else None,
     )
 
 
@@ -442,15 +540,25 @@ def create_challenge(user_id: str, request: ChallengeCreateRequest) -> Challenge
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
+            user_input = request.user_input or {
+                "title": request.title,
+                "category": request.category,
+                "difficulty": request.difficulty,
+                "confidence": request.confidence,
+                "visibility": request.visibility,
+                "deadline_at": request.deadline_at,
+                "deadline_label": request.deadline_label,
+            }
             cursor.execute(
                 """INSERT INTO challenges
                 (id, user_id, title, category, difficulty, confidence, visibility,
                  deadline_at, deadline_label, probability, yes_odds, no_odds,
-                 analysis_json, proof_plan_json)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                 user_input_json, analysis_json, proof_plan_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (challenge_id, user_id, request.title.strip(), request.category, request.difficulty,
                  request.confidence, request.visibility, parsed_deadline, request.deadline_label,
                  request.probability, request.yes_odds, request.no_odds,
+                 json.dumps(user_input, ensure_ascii=False),
                  json.dumps(request.analysis, ensure_ascii=False) if request.analysis is not None else None,
                  json.dumps(request.proof_plan, ensure_ascii=False) if request.proof_plan is not None else None),
             )
@@ -469,6 +577,109 @@ def list_challenges(user_id: str, limit: int = 50, offset: int = 0) -> list[Chal
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute("SELECT * FROM challenges WHERE user_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s", (user_id, limit, offset))
             return [_challenge_response(row) for row in cursor.fetchall()]
+
+
+@app.post("/users/{user_id}/challenges/{challenge_id}/result")
+def save_challenge_result(
+    user_id: str,
+    challenge_id: str,
+    request: ChallengeResultRequest,
+) -> dict[str, object]:
+    observation_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, f"betmylife:app:{challenge_id}")
+    )
+    with get_connection() as connection:
+        connection.begin()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    """SELECT id, category, created_at, deadline_at,
+                    analysis_json, user_input_json, result, resolved_at
+                    FROM challenges WHERE id = %s AND user_id = %s FOR UPDATE""",
+                    (challenge_id, user_id),
+                )
+                challenge = cursor.fetchone()
+                if challenge is None:
+                    raise HTTPException(status_code=404, detail="Challenge not found")
+                if challenge.get("result") not in (None, request.outcome):
+                    raise HTTPException(status_code=409, detail="Challenge result is already final")
+
+                resolved_at = challenge.get("resolved_at") or datetime.now(timezone.utc).replace(tzinfo=None)
+                if challenge.get("result") is None:
+                    cursor.execute(
+                        "UPDATE challenges SET result = %s, resolved_at = %s WHERE id = %s",
+                        (request.outcome, resolved_at, challenge_id),
+                    )
+
+                created_at = challenge["created_at"]
+                deadline_at = challenge["deadline_at"]
+                hours_until_deadline = None
+                if created_at is not None and deadline_at is not None:
+                    hours_until_deadline = (
+                        deadline_at - created_at
+                    ).total_seconds() / 3600
+                features = _observation_features(challenge)
+
+                cursor.execute(
+                    """INSERT IGNORE INTO ml_observations
+                    (id, source, user_id, challenge_id, occurred_at, app_category,
+                     category, subcategory, goal, goal_unit, target_hour, weather,
+                     hours_until_deadline, success)
+                    VALUES (%s, 'app', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        observation_id,
+                        user_id,
+                        challenge_id,
+                        resolved_at,
+                        challenge["category"],
+                        features["category"],
+                        features["subcategory"],
+                        features["goal"],
+                        features["goal_unit"],
+                        features["target_hour"],
+                        features["weather"],
+                        hours_until_deadline,
+                        int(request.outcome == "success"),
+                    ),
+                )
+                created = cursor.rowcount == 1
+            connection.commit()
+        except BaseException:
+            connection.rollback()
+            raise
+    return {"observation_id": observation_id, "created": created}
+
+
+@app.get("/users/{user_id}/ml-observations")
+def list_ml_observations(
+    user_id: str,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict[str, list[dict[str, object]]]:
+    limit = min(max(limit, 1), 500)
+    offset = max(offset, 0)
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """SELECT id, source, challenge_id, occurred_at, app_category,
+                category, subcategory, goal, goal_unit, target_hour, weather,
+                hours_until_deadline, success
+                FROM ml_observations WHERE user_id = %s
+                ORDER BY occurred_at DESC LIMIT %s OFFSET %s""",
+                (user_id, limit, offset),
+            )
+            observations = [
+                {
+                    **row,
+                    "occurred_at": _timestamp(row["occurred_at"]),
+                    "success": bool(row["success"]),
+                }
+                for row in cursor.fetchall()
+            ]
+    return {"observations": observations}
 
 
 @app.get("/users/{user_id}/badges")

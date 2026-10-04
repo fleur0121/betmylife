@@ -20,12 +20,12 @@ import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useRef, useState } from "react";
 import {
-    FlatList,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -113,6 +113,9 @@ export default function Home() {
             friends: 0,
             visibility: item.visibility,
             proofPlan: item.proof_plan ?? undefined,
+            ownerId: state.authUserId ?? undefined,
+            result: item.result ?? undefined,
+            resolvedAt: item.resolved_at ?? undefined,
           })),
         });
         setLoadError("");
@@ -235,7 +238,7 @@ export default function Home() {
                           style={[
                             styles.dateDay,
                             sameDate(selectedDate, date) &&
-                              styles.dateSelectedText,
+                            styles.dateSelectedText,
                           ]}
                         >
                           {weekday(date)}
@@ -244,7 +247,7 @@ export default function Home() {
                           style={[
                             styles.dateNumber,
                             sameDate(selectedDate, date) &&
-                              styles.dateSelectedText,
+                            styles.dateSelectedText,
                           ]}
                         >
                           {date.getDate()}
@@ -332,14 +335,14 @@ export default function Home() {
                             style={[
                               styles.calendarDay,
                               sameDate(selectedDate, date) &&
-                                styles.calendarDaySelected,
+                              styles.calendarDaySelected,
                             ]}
                           >
                             <Text
                               style={[
                                 styles.calendarDayText,
                                 sameDate(selectedDate, date) &&
-                                  styles.calendarDayTextSelected,
+                                styles.calendarDayTextSelected,
                               ]}
                             >
                               {date.getDate()}

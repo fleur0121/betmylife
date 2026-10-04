@@ -79,5 +79,26 @@ GET  /users/{user_id}/badges
 POST /users/{user_id}/badges/{badge_id}/claim
 ```
 
+## Challenge and ML data
+
+Challenge data has three separate layers:
+
+- `challenges.user_input_json` stores the versioned user-submitted form snapshot,
+	including the untrimmed title and timezone. Display/search fields such as
+	`title` remain separate columns.
+- `challenges.analysis_json` stores the NLP response, including `source_text`
+	and extracted actions. Keep this payload intact so extraction can be reviewed
+	or rerun when the parser changes.
+- `ml_observations` stores one result label linked by `challenge_id`. `app_category`
+	is the app's broad Study/Fitness/Lifestyle choice; `category` and
+	`subcategory` are the extracted behavior labels. Numeric goal, unit, target
+	hour, weather, and outcome are separate nullable features.
+
+The app-state JSON is a UI snapshot, not the canonical ML training source.
+Observations should be joined back to their challenge when the original input
+or full NLP analysis is needed. Existing challenges are backfilled from their
+columns with `capture_status=backfilled_from_challenge_columns`; those snapshots
+are reconstructed records, not the original raw submission.
+
 After deploying this schema change, run `POST /db/init` once against the TiDB
 database before opening the updated app.

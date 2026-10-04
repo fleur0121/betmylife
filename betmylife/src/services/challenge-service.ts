@@ -13,6 +13,7 @@ type CreateChallengeInput = {
   deadlineLabel: string;
   analysis: ChallengeNlpResult | null;
   proofPlan?: Challenge["proofPlan"];
+  userInput: Record<string, unknown>;
 };
 
 export async function saveChallenge(input: CreateChallengeInput) {
@@ -30,6 +31,7 @@ export async function saveChallenge(input: CreateChallengeInput) {
       probability: 68,
       yes_odds: 1.47,
       no_odds: 3.13,
+      user_input: input.userInput,
       analysis: input.analysis,
       ...(input.proofPlan ? { proof_plan: input.proofPlan } : {}),
     }),
@@ -57,5 +59,7 @@ export async function getChallenges(userId: string) {
     yes_odds: number;
     no_odds: number;
     proof_plan: Challenge["proofPlan"];
+    result: Challenge["result"];
+    resolved_at: string | null;
   }[];
 }

@@ -6,33 +6,33 @@
 import { BrandAsset } from "@/components/brand-asset";
 import { Text } from "@/components/localized-text";
 import {
-    Button,
-    Card,
-    PageHeading,
-    Screen,
-    Segments,
-    s,
+  Button,
+  Card,
+  PageHeading,
+  Screen,
+  Segments,
+  s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
 import type { Category, Visibility } from "@/mock/data";
 import { saveChallenge } from "@/services/challenge-service";
 import {
-    analyzeChallenge,
-    type ChallengeNlpRequest,
-    type ChallengeNlpResult,
+  analyzeChallenge,
+  type ChallengeNlpRequest,
+  type ChallengeNlpResult,
 } from "@/services/challenge-nlp";
 import { useAppState } from "@/state/app-state";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StyleSheet,
-    TextInput,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 export default function Create() {
   const { locale, t } = useLanguage();
@@ -131,7 +131,7 @@ export default function Create() {
     try {
       savedChallenge = await saveChallenge({
         userId: state.authUserId,
-        title: title.trim(),
+        title,
         category,
         difficulty,
         confidence,
@@ -139,6 +139,17 @@ export default function Create() {
         deadlineAt,
         deadlineLabel: resolvedDeadline,
         analysis: postedAnalysis ?? analysis,
+        userInput: {
+          schema_version: 1,
+          title,
+          category,
+          difficulty,
+          confidence,
+          visibility,
+          deadline_at: deadlineAt,
+          deadline_label: resolvedDeadline,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        },
       });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save your challenge.");
@@ -362,10 +373,9 @@ export default function Create() {
                 accessibilityRole="adjustable"
                 accessibilityLabel={t("Confidence")}
                 accessibilityValue={{ min: 0, max: 100, now: confidence }}
-                onLayout={(event) =>
-                  {
-                    confidenceTrackWidth.current = event.nativeEvent.layout.width;
-                  }
+                onLayout={(event) => {
+                  confidenceTrackWidth.current = event.nativeEvent.layout.width;
+                }
                 }
                 onStartShouldSetResponder={() => true}
                 onStartShouldSetResponderCapture={() => true}
