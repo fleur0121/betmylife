@@ -188,7 +188,7 @@ export default function Friends() {
           <Text style={s.muted}>Find a friend by ID or share your QR code.</Text>
         </Card>
       )}
-      <Text style={s.caption}>Demo only · Friends reset on reload.</Text>
+      <Text style={s.caption}>Demo profiles · your friend list is saved to your account.</Text>
     </Screen>
   );
 }

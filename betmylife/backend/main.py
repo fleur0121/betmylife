@@ -1,6 +1,7 @@
 import os
 import hashlib
 import hmac
+import json
 import secrets
 import uuid
 from typing import Literal
@@ -131,6 +132,15 @@ class ProfileSetupRequest(BaseModel):
     gender: Literal["male", "female", "other"]
 
 
+class AppStateRequest(BaseModel):
+    version: int = Field(ge=1)
+    data: dict
+
+
+class FollowingResponse(BaseModel):
+    followed_ids: list[str]
+
+
 def is_profile_complete(user: dict) -> bool:
     return bool(user.get("nickname") and user.get("age") and user.get("gender"))
 
@@ -155,7 +165,7 @@ def health() -> dict[str, str]:
 
 @app.post("/db/init")
 def initialize_database() -> dict[str, str]:
-    """Create the first application table after TiDB credentials are configured."""
+    """Create or upgrade the application tables after TiDB is configured."""
     init_db()
     return {"status": "ok", "message": "users table is ready"}
 
@@ -225,6 +235,92 @@ def update_profile(user_id: str, request: ProfileUpdateRequest) -> ProfileRespon
             if cursor.rowcount == 0:
                 raise HTTPException(status_code=404, detail="Profile not found")
     return get_profile(user_id)
+
+
+@app.get("/users/{user_id}/app-state")
+def get_app_state(user_id: str) -> dict | None:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                "SELECT version, state_json FROM user_app_states WHERE user_id = %s",
+                (user_id,),
+            )
+            saved = cursor.fetchone()
+    if saved is None:
+        return None
+    data = saved["state_json"]
+    if isinstance(data, (str, bytes, bytearray)):
+        data = json.loads(data)
+    return {"version": saved["version"], "data": data}
+
+
+@app.put("/users/{user_id}/app-state")
+def save_app_state(user_id: str, request: AppStateRequest) -> dict[str, str]:
+    serialized_state = json.dumps(request.data, separators=(",", ":"), ensure_ascii=False)
+    if len(serialized_state.encode("utf-8")) > 1_000_000:
+        raise HTTPException(status_code=413, detail="App state is too large")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """
+                INSERT INTO user_app_states (user_id, version, state_json)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    version = VALUES(version),
+                    state_json = VALUES(state_json)
+                """,
+                (user_id, request.version, serialized_state),
+            )
+    return {"status": "saved"}
+
+
+@app.get("/users/{user_id}/following", response_model=FollowingResponse)
+def get_following(user_id: str) -> FollowingResponse:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                "SELECT followed_id FROM user_follows WHERE follower_id = %s ORDER BY created_at DESC",
+                (user_id,),
+            )
+            followed_ids = [row["followed_id"] for row in cursor.fetchall()]
+    return FollowingResponse(followed_ids=followed_ids)
+
+
+@app.put("/users/{user_id}/following/{followed_id}", status_code=204)
+def follow_user(user_id: str, followed_id: str) -> None:
+    if user_id == followed_id:
+        raise HTTPException(status_code=400, detail="You cannot follow yourself")
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                "INSERT IGNORE INTO user_follows (follower_id, followed_id) VALUES (%s, %s)",
+                (user_id, followed_id),
+            )
+
+
+@app.delete("/users/{user_id}/following/{followed_id}", status_code=204)
+def unfollow_user(user_id: str, followed_id: str) -> None:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                "DELETE FROM user_follows WHERE follower_id = %s AND followed_id = %s",
+                (user_id, followed_id),
+            )
 
 @app.post("/translate", response_model=TranslateResponse)
 def translate_text(request: TranslateRequest) -> TranslateResponse:

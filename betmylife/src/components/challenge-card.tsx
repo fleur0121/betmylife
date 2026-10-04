@@ -12,16 +12,14 @@ import { getChallengeTitle, getJapaneseTitle } from "@/utils/challenge-text";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
-import { Text } from "./localized-text";
-import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 import { BrandAsset } from "./brand-asset";
+import { Text } from "./localized-text";
 import { PredictionPanel } from "./prediction-panel";
-import { getChallengePointPreview } from "@/utils/points";
+import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { state, dispatch } = useAppState();
   const { locale, t } = useLanguage();
   const selected = state.predictions[challenge.id];
-  const pointPreview = getChallengePointPreview(challenge);
   const author = friendDirectory.find(
     (friend) => friend.name === challenge.user,
   );
@@ -67,30 +65,48 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           <Text style={s.caption}>◷ {challenge.deadline}</Text>
         </View>
         <View style={styles.authorTags}>
-        <View style={[styles.categoryTag, { backgroundColor: challenge.category === "Fitness" ? c.mint : challenge.category === "Study" ? c.sky : c.lavender }]}> 
-          <BrandAsset
-            name={challenge.category === "Fitness" ? "iconFitness" : challenge.category === "Study" ? "iconStudy" : "iconLifestyle"}
-            style={styles.categoryIcon}
-          />
-          <Text style={styles.categoryName}>{challenge.category}</Text>
-        </View>
-        {challenge.proofPlan && (
-          <Pill tone="neutral">
-            {challenge.proofPlan.requirements[0]?.method === "photo"
-              ? "Photo proof"
-              : challenge.proofPlan.requirements[0]?.method === "timer"
-                ? "Timer proof"
-                : challenge.proofPlan.requirements[0]?.method === "self_report"
-                  ? "Self report"
-                  : "✦ Proof Plan"}
-          </Pill>
-        )}
+          <View
+            style={[
+              styles.categoryTag,
+              {
+                backgroundColor:
+                  challenge.category === "Fitness"
+                    ? c.mint
+                    : challenge.category === "Study"
+                      ? c.sky
+                      : c.lavender,
+              },
+            ]}
+          >
+            <BrandAsset
+              name={
+                challenge.category === "Fitness"
+                  ? "iconFitness"
+                  : challenge.category === "Study"
+                    ? "iconStudy"
+                    : "iconLifestyle"
+              }
+              style={styles.categoryIcon}
+            />
+            <Text style={styles.categoryName}>{challenge.category}</Text>
+          </View>
+          {challenge.proofPlan && (
+            <Pill tone="neutral">
+              {challenge.proofPlan.requirements[0]?.method === "photo"
+                ? "Photo proof"
+                : challenge.proofPlan.requirements[0]?.method === "timer"
+                  ? "Timer proof"
+                  : challenge.proofPlan.requirements[0]?.method ===
+                      "self_report"
+                    ? "Self report"
+                    : "✦ Proof Plan"}
+            </Pill>
+          )}
         </View>
       </Pressable>
       <Text translate={false} style={styles.title}>
         {getChallengeTitle(challenge, locale)}
       </Text>
-      <Text style={styles.atStake}>AT STAKE  <Text style={{ color: c.primary }}>+{pointPreview.success}</Text><Text> / </Text><Text style={{ color: c.red }}>{pointPreview.failed} PT</Text></Text>
       {getJapaneseTitle(challenge) &&
         getJapaneseTitle(challenge) !== challenge.title && (
           <Text translate={false} style={styles.translation}>
@@ -115,11 +131,6 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         <Text style={s.caption}>Stake points</Text>
       </View>
       <PredictionPanel challenge={challenge} />
-      {challenge.user === "Fuka" && (
-        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/challenge-proof", params: { id: challenge.id } })} style={({ pressed }) => [styles.proofAction, pressed && s.pressed]}>
-          <Text style={styles.proofActionText}>{challenge.pointsSettled ? (challenge.result === "success" ? "YOU DID IT ✦" : "NOT THIS TIME · RESULT") : "DO THE CHALLENGE · SUBMIT PROOF →"}</Text>
-        </Pressable>
-      )}
       <View style={styles.footer}>
         <Text style={s.caption}>
           👥 {challenge.friends + (selected ? 1 : 0)} friend predictions
@@ -128,7 +139,9 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           accessibilityLiveRegion="polite"
           style={[s.caption, { color: selected ? c.primary : c.muted }]}
         >
-          {selected ? `You’re locked on ${selected.toUpperCase()}` : "Choose a side to stake points"}
+          {selected
+            ? `You’re locked on ${selected.toUpperCase()}`
+            : "Choose a side to stake points"}
         </Text>
         {challenge.user === "Fuka" && (
           <Pressable
@@ -157,10 +170,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: c.border,
   },
-  author: { flexDirection: "row", gap: 10, alignItems: "flex-start", flexWrap: "wrap" },
+  author: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+  },
   authorIdentity: { flex: 1, minWidth: 150, paddingTop: 2 },
-  authorTags: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end", gap: 5, maxWidth: "48%" },
-  categoryTag: { minHeight: 32, paddingHorizontal: 6, flexDirection: "row", gap: 3, alignItems: "center", borderRadius: 18 },
+  authorTags: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: 5,
+    maxWidth: "48%",
+  },
+  categoryTag: {
+    minHeight: 32,
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    gap: 3,
+    alignItems: "center",
+    borderRadius: 18,
+  },
   categoryIcon: { width: 25, height: 25 },
   categoryName: { fontSize: 9, fontWeight: "800", color: c.text },
   nameRow: {
@@ -191,7 +223,12 @@ const styles = StyleSheet.create({
     gap: 4,
     minHeight: 42,
   },
-  question: { fontSize: 14, fontWeight: "800", color: c.text, textAlign: "center" },
+  question: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: c.text,
+    textAlign: "center",
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -209,7 +246,4 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   deleteText: { color: c.red, fontSize: 12, fontWeight: "700" },
-  proofAction: { alignSelf: "flex-start", paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13, backgroundColor: c.lavenderLight },
-  proofActionText: { color: c.primaryDark, fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
-  atStake: { color: c.muted, fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
 });

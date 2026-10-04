@@ -7,25 +7,23 @@
 import {
     challenges,
     initialCosmetics,
-    initialPointsBalance,
+    initialWallet,
     rewards,
     type Challenge,
     type CosmeticSlot,
-  type Prediction,
-  type PredictionChoice,
-  type PointTransaction,
+    type Prediction,
+    type PredictionChoice,
 } from "@/mock/data";
-import { clampPointBalance, getChallengePointChange } from "@/utils/points";
 import { friendDirectory, initialFriendIds, myFriendId } from "@/mock/friends";
 import {
-  isChallengeExpired,
-  getPredictionLockAt,
-  isPredictionLocked,
-  isPredictionWindowClosed,
-  settleChallengePredictions,
-  validateStake,
-  voidChallengePredictions,
-  type ChallengeOutcome,
+    getPredictionLockAt,
+    isChallengeExpired,
+    isPredictionLocked,
+    isPredictionWindowClosed,
+    settleChallengePredictions,
+    validateStake,
+    voidChallengePredictions,
+    type ChallengeOutcome,
 } from "@/utils/predictions";
 import {
     createContext,
@@ -39,18 +37,21 @@ type State = {
   challenges: Challenge[];
   predictions: Record<string, PredictionChoice>;
   stakedPredictions: Record<string, Prediction>;
-  pointsBalance: number;
+  wallet: number;
   owned: string[];
   equipped: Record<CosmeticSlot, string>;
-  transactions: PointTransaction[];
 };
 type Action =
   | { type: "login"; userId: string }
   | { type: "add-friend"; id: string }
   | { type: "place-prediction"; prediction: Prediction }
   | { type: "cancel-prediction"; challengeId: string; cancelledAt?: string }
-  | { type: "settle-predictions"; challengeId: string; outcome: ChallengeOutcome; settledAt?: string }
-  | { type: "settle-challenge"; challengeId: string; outcome: ChallengeOutcome; settledAt?: string }
+  | {
+      type: "settle-predictions";
+      challengeId: string;
+      outcome: ChallengeOutcome;
+      settledAt?: string;
+    }
   | { type: "create"; challenge: Challenge }
   | { type: "delete"; id: string }
   | { type: "buy"; id: string }
@@ -61,14 +62,10 @@ export const initialState: State = {
   challenges,
   predictions: {},
   stakedPredictions: {},
-  pointsBalance: initialPointsBalance,
+  wallet: initialWallet,
   owned: [],
   equipped: initialCosmetics,
-  transactions: [],
 };
-function transaction(userId: string, amount: number, reason: PointTransaction["reason"], fields: Partial<PointTransaction> = {}): PointTransaction {
-  return { id: `${reason}-${fields.challengeId ?? fields.itemId ?? "points"}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, userId, amount, reason, createdAt: new Date().toISOString(), ...fields };
-}
 export function appReducer(state: State, action: Action): State {
   switch (action.type) {
     case "login":
@@ -84,15 +81,31 @@ export function appReducer(state: State, action: Action): State {
     }
     case "place-prediction": {
       const prediction = action.prediction;
-      const challenge = state.challenges.find((item) => item.id === prediction.challengeId);
-      const user = friendDirectory.find((item) => item.id === prediction.userId);
-      const author = challenge && friendDirectory.find((item) => item.name === challenge.user);
-      const odds = challenge && Number(prediction.choice === "yes" ? challenge.yesOdds : challenge.noOdds);
+      const challenge = state.challenges.find(
+        (item) => item.id === prediction.challengeId,
+      );
+      const user = friendDirectory.find(
+        (item) => item.id === prediction.userId,
+      );
+      const author =
+        challenge &&
+        friendDirectory.find((item) => item.name === challenge.user);
+      const odds =
+        challenge &&
+        Number(
+          prediction.choice === "yes" ? challenge.yesOdds : challenge.noOdds,
+        );
       const previous = Object.values(state.stakedPredictions).find(
-        (item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && item.status === "active",
+        (item) =>
+          item.challengeId === prediction.challengeId &&
+          item.userId === prediction.userId &&
+          item.status === "active",
       );
       const settledBefore = Object.values(state.stakedPredictions).some(
-        (item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && (item.status === "won" || item.status === "lost"),
+        (item) =>
+          item.challengeId === prediction.challengeId &&
+          item.userId === prediction.userId &&
+          (item.status === "won" || item.status === "lost"),
       );
       if (
         !challenge ||
@@ -100,46 +113,72 @@ export function appReducer(state: State, action: Action): State {
         prediction.userId !== myFriendId ||
         !author ||
         author.id === prediction.userId ||
-        !validateStake(prediction.stake, state.pointsBalance + (previous?.stake ?? 0)).valid ||
+        !validateStake(prediction.stake, state.wallet + (previous?.stake ?? 0))
+          .valid ||
         isChallengeExpired(challenge) ||
         isPredictionWindowClosed(challenge) ||
         (previous !== undefined && isPredictionLocked(previous, challenge)) ||
         settledBefore ||
-        !Number.isFinite(odds) || odds! <= 0 ||
+        !Number.isFinite(odds) ||
+        odds! <= 0 ||
         prediction.lockedOdds !== odds ||
         prediction.status !== "active" ||
-        Object.values(state.stakedPredictions).some((item) =>
-          item.challengeId === challenge.id && item.userId === prediction.userId && item.status !== "void" && item !== previous,
+        Object.values(state.stakedPredictions).some(
+          (item) =>
+            item.challengeId === challenge.id &&
+            item.userId === prediction.userId &&
+            item.status !== "void" &&
+            item !== previous,
         ) ||
-        (state.stakedPredictions[prediction.id] !== undefined && state.stakedPredictions[prediction.id] !== previous)
-      ) return state;
+        (state.stakedPredictions[prediction.id] !== undefined &&
+          state.stakedPredictions[prediction.id] !== previous)
+      )
+        return state;
       const storedPrediction: Prediction = {
         ...prediction,
         id: previous?.id ?? prediction.id,
         createdAt: previous?.createdAt ?? prediction.createdAt,
         lockAt: previous?.lockAt ?? getPredictionLockAt(challenge) ?? undefined,
       };
-      const stakedPredictions = { ...state.stakedPredictions, [storedPrediction.id]: storedPrediction };
+      const stakedPredictions = {
+        ...state.stakedPredictions,
+        [storedPrediction.id]: storedPrediction,
+      };
       return {
         ...state,
-        predictions: { ...state.predictions, [prediction.challengeId]: prediction.choice },
-        pointsBalance: Math.max(0, state.pointsBalance + (previous?.stake ?? 0) - prediction.stake),
+        predictions: {
+          ...state.predictions,
+          [prediction.challengeId]: prediction.choice,
+        },
+        wallet: state.wallet + (previous?.stake ?? 0) - prediction.stake,
         stakedPredictions,
-        transactions: [...state.transactions,
-          ...(previous ? [transaction(prediction.userId, previous.stake, "prediction_refund", { challengeId: prediction.challengeId, predictionId: previous.id })] : []),
-          transaction(prediction.userId, -prediction.stake, "prediction_stake", { challengeId: prediction.challengeId, predictionId: storedPrediction.id })],
       };
     }
     case "cancel-prediction": {
-      const challenge = state.challenges.find((item) => item.id === action.challengeId);
-      const prediction = Object.values(state.stakedPredictions).find(
-        (item) => item.challengeId === action.challengeId && item.userId === myFriendId && item.status === "active",
+      const challenge = state.challenges.find(
+        (item) => item.id === action.challengeId,
       );
-      if (!challenge || !prediction || isPredictionLocked(prediction, challenge)) return state;
+      const prediction = Object.values(state.stakedPredictions).find(
+        (item) =>
+          item.challengeId === action.challengeId &&
+          item.userId === myFriendId &&
+          item.status === "active",
+      );
+      if (
+        !challenge ||
+        !prediction ||
+        isPredictionLocked(prediction, challenge)
+      )
+        return state;
       const settledAt = action.cancelledAt ?? new Date().toISOString();
       const stakedPredictions = {
         ...state.stakedPredictions,
-        [prediction.id]: { ...prediction, status: "void" as const, payout: prediction.stake, settledAt },
+        [prediction.id]: {
+          ...prediction,
+          status: "void" as const,
+          payout: prediction.stake,
+          settledAt,
+        },
       };
       const predictions = { ...state.predictions };
       delete predictions[action.challengeId];
@@ -147,43 +186,21 @@ export function appReducer(state: State, action: Action): State {
         ...state,
         predictions,
         stakedPredictions,
-        pointsBalance: state.pointsBalance + prediction.stake,
-        transactions: [...state.transactions, transaction(prediction.userId, prediction.stake, "prediction_refund", { challengeId: action.challengeId, predictionId: prediction.id })],
+        wallet: state.wallet + prediction.stake,
       };
     }
     case "settle-predictions": {
-      const result = settleChallengePredictions(state.stakedPredictions, action.challengeId, action.outcome, action.settledAt);
+      const result = settleChallengePredictions(
+        state.stakedPredictions,
+        action.challengeId,
+        action.outcome,
+        action.settledAt,
+      );
       if (!result.changed) return state;
       return {
         ...state,
         stakedPredictions: result.predictions,
-        pointsBalance: clampPointBalance(state.pointsBalance, result.creditedPoints),
-        transactions: [...state.transactions, ...Object.values(state.stakedPredictions).filter((prediction) => prediction.challengeId === action.challengeId && prediction.status === "active").flatMap((oldPrediction) => {
-          const settledPrediction = result.predictions[oldPrediction.id];
-          return settledPrediction?.status === "won" && settledPrediction.payout ? [transaction(settledPrediction.userId, settledPrediction.payout, "prediction_win", { challengeId: action.challengeId, predictionId: settledPrediction.id })] : [];
-        })],
-      };
-    }
-    case "settle-challenge": {
-      const challenge = state.challenges.find((item) => item.id === action.challengeId);
-      if (!challenge || challenge.pointsSettled || challenge.result) return state;
-      const settledAt = action.settledAt ?? new Date().toISOString();
-      const predictionResult = settleChallengePredictions(state.stakedPredictions, action.challengeId, action.outcome, settledAt);
-      const earnsOwnerPoints = challenge.user === "Fuka";
-      const ruleChange = earnsOwnerPoints ? getChallengePointChange(challenge.difficulty, action.outcome) : 0;
-      const ownerBalanceAfter = clampPointBalance(state.pointsBalance, ruleChange);
-      const ownerChange = ownerBalanceAfter - state.pointsBalance;
-      const reason = action.outcome === "success" ? "challenge_success" : "challenge_failure";
-      const ownerTransaction = earnsOwnerPoints ? [transaction(myFriendId, ownerChange, reason, { challengeId: challenge.id })] : [];
-      const winTransactions = Object.values(predictionResult.predictions)
-        .filter((prediction) => prediction.challengeId === challenge.id && prediction.status === "won" && prediction.payout && !Object.values(state.stakedPredictions).some((old) => old.id === prediction.id && old.status === "won"))
-        .map((prediction) => transaction(prediction.userId, prediction.payout!, "prediction_win", { challengeId: challenge.id, predictionId: prediction.id }));
-      return {
-        ...state,
-        challenges: state.challenges.map((item) => item.id === challenge.id ? { ...item, result: action.outcome, pointsSettled: true } : item),
-        stakedPredictions: predictionResult.predictions,
-        pointsBalance: ownerBalanceAfter + predictionResult.creditedPoints,
-        transactions: [...state.transactions, ...ownerTransaction, ...winTransactions],
+        wallet: state.wallet + result.creditedPoints,
       };
     }
     case "create":
@@ -195,14 +212,16 @@ export function appReducer(state: State, action: Action): State {
       if (challenges.length === state.challenges.length) return state;
       const predictions = { ...state.predictions };
       delete predictions[action.id];
-      const result = voidChallengePredictions(state.stakedPredictions, action.id);
+      const result = voidChallengePredictions(
+        state.stakedPredictions,
+        action.id,
+      );
       return {
         ...state,
         challenges,
         predictions,
         stakedPredictions: result.predictions,
-        pointsBalance: state.pointsBalance + result.refundedPoints,
-        transactions: [...state.transactions, ...Object.values(state.stakedPredictions).filter((prediction) => prediction.challengeId === action.id && prediction.status === "active").map((prediction) => transaction(prediction.userId, prediction.stake, "prediction_refund", { challengeId: action.id, predictionId: prediction.id }))],
+        wallet: state.wallet + result.refundedPoints,
       };
     }
     case "buy": {
@@ -210,14 +229,13 @@ export function appReducer(state: State, action: Action): State {
       if (
         !reward ||
         state.owned.includes(reward.id) ||
-        state.pointsBalance < reward.price
+        state.wallet < reward.price
       )
         return state;
       return {
         ...state,
-        pointsBalance: state.pointsBalance - reward.price,
+        wallet: state.wallet - reward.price,
         owned: [...state.owned, reward.id],
-        transactions: [...state.transactions, transaction(myFriendId, -reward.price, "shop_purchase", { itemId: reward.id })],
       };
     }
     case "equip": {

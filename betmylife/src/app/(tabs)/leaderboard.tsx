@@ -1,11 +1,13 @@
 /**
  * ランキング画面。モックユーザーを週間ポイント・予想精度・連続日数で並べ替える。
  * 選択された指標に応じてトップ3の表彰台、一覧の順位、表示するスコアを切り替える。
- * Weeklyのポイント指標にはアプリの共有PT残高を使う。
+ * ここで使う週間ポイントは、Shopで消費するウォレット残高とは別の値。
  */
+import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { LeaderboardRow } from "@/components/leaderboard-row";
 import { Text } from "@/components/localized-text";
 import {
+    Avatar,
     Card,
     PageHeading,
     Screen,
@@ -17,22 +19,17 @@ import { palette as c } from "@/constants/design";
 import { users } from "@/mock/data";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
-import { BrandAsset } from "@/components/brand-asset";
-import { useAppState } from "@/state/app-state";
-import { AvatarFrame, SampleAvatar } from "@/components/profile/avatar-frame";
-const metrics = ["PT", "Prediction", "Streak"] as const;
+const metrics = ["Weekly", "Prediction", "Streak"] as const;
 type Metric = (typeof metrics)[number];
 export default function Leaderboard() {
-  const [metric, setMetric] = useState<Metric>("PT");
-  const { state } = useAppState();
+  const [metric, setMetric] = useState<Metric>("Weekly");
   const key =
-    metric === "PT"
+    metric === "Weekly"
       ? "points"
       : metric === "Prediction"
         ? "accuracy"
         : "streak";
-  const liveUsers = users.map((user) => user.name === "Fuka" ? { ...user, points: state.pointsBalance } : user);
-  const ranked = [...liveUsers].sort((a, b) => b[key] - a[key]);
+  const ranked = [...users].sort((a, b) => b[key] - a[key]);
   const score = (user: (typeof users)[number]) =>
     `${user[key].toLocaleString()}${key === "accuracy" ? "%" : key === "streak" ? " days" : " PT"}`;
   return (
@@ -50,11 +47,31 @@ export default function Leaderboard() {
               key={user.name}
               style={[styles.podiumUser, index === 0 && { marginTop: 0 }]}
             >
-              {index === 0 && <BrandAsset name="iconTrophy" style={styles.crown} label="Leaderboard leader" />}
+              {index === 0 && (
+                <BrandAsset
+                  name="iconTrophy"
+                  style={styles.crown}
+                  label="Leaderboard leader"
+                />
+              )}
               <View style={styles.avatarStage}>
-                <AvatarFrame frame={index === 0 ? "champion" : index === 1 ? "purple_orbit" : "fire"} size={index === 0 ? 72 : 60}>
-                  <SampleAvatar size={index === 0 ? 72 : 60} />
-                </AvatarFrame>
+                <Avatar
+                  emoji={user.avatar}
+                  color={user.color}
+                  size={index === 0 ? 63 : 52}
+                />
+                <BrandAsset
+                  name={
+                    (
+                      [
+                        "frameSunny",
+                        "framePurpleAura",
+                        "frameFire",
+                      ] as BrandAssetName[]
+                    )[index]
+                  }
+                  style={styles.avatarFrame}
+                />
               </View>
               <Text translate={false} style={s.bold}>
                 {user.name}
@@ -88,13 +105,14 @@ export default function Leaderboard() {
       </View>
       <Card style={{ backgroundColor: c.lavenderLight }}>
         <Text style={s.bold}>
-          ✦ You’re #{ranked.findIndex((user) => user.name === "Fuka") + 1} in your circle
+          ✦ You’re #{ranked.findIndex((user) => user.name === "Fuka") + 1} this
+          week
         </Text>
         <Text style={s.muted}>
           Every little effort counts. Your next challenge could move you up.
         </Text>
       </Card>
-      <SectionHeader title="Your circle" detail="SHARED PT · DEMO" />
+      <SectionHeader title="Your circle" detail="THIS WEEK · DEMO" />
       <View style={{ gap: 8 }}>
         {ranked.map((user, index) => (
           <LeaderboardRow
@@ -106,7 +124,7 @@ export default function Leaderboard() {
         ))}
       </View>
       <Text style={[s.caption, { textAlign: "center" }]}>
-        One shared PT balance powers predictions, challenge results and Shop rewards.
+        Weekly points celebrate progress. Shop points are yours to spend.
       </Text>
     </Screen>
   );
@@ -120,7 +138,13 @@ const styles = StyleSheet.create({
   },
   podiumUser: { flex: 1, alignItems: "center", gap: 10, marginTop: 30 },
   crown: { width: 53, height: 46, marginBottom: -4 },
-  avatarStage: { width: 82, height: 82, alignItems: "center", justifyContent: "center" },
+  avatarStage: {
+    width: 82,
+    height: 82,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarFrame: { position: "absolute", width: 82, height: 82 },
   pedestal: {
     width: "100%",
     borderTopLeftRadius: 18,

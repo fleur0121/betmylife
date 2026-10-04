@@ -13,18 +13,71 @@ import { palette as c } from "@/constants/design";
 import { currentUser, users } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
+import { API_URL } from "@/constants/api";
 import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 export default function UserProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useAppState();
+  const [followingSnapshot, setFollowingSnapshot] = useState<{ userId: string; ids: string[] } | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
+  const [followError, setFollowError] = useState("");
   const profile = friendDirectory.find((friend) => friend.id === id);
   const stats = users.find((user) => user.name === profile?.name);
   const isCurrentUser = profile?.name === currentUser.name;
+  const isFollowing = Boolean(state.authUserId && followingSnapshot?.userId === state.authUserId && followingSnapshot.ids.includes(id));
   const posts = state.challenges.filter(
     (challenge) => challenge.user === profile?.name,
   );
+
+  useEffect(() => {
+    if (!state.authUserId || !id) {
+      return;
+    }
+    let cancelled = false;
+    fetch(`${API_URL}/users/${state.authUserId}/following`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Could not load followed users (${response.status})`);
+        return response.json() as Promise<{ followed_ids: string[] }>;
+      })
+      .then((result) => {
+        if (!cancelled) setFollowingSnapshot({ userId: state.authUserId!, ids: result.followed_ids });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setFollowError(error instanceof Error ? error.message : "Could not load follow status.");
+      });
+    return () => { cancelled = true; };
+  }, [id, state.authUserId]);
+
+  async function toggleFollow() {
+    if (!state.authUserId || !id) {
+      router.push("/auth");
+      return;
+    }
+    setFollowBusy(true);
+    setFollowError("");
+    try {
+      const response = await fetch(`${API_URL}/users/${state.authUserId}/following/${encodeURIComponent(id)}`, {
+        method: isFollowing ? "DELETE" : "PUT",
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null) as { detail?: string } | null;
+        throw new Error(body?.detail ?? "Could not update follow status.");
+      }
+      setFollowingSnapshot((current) => ({
+        userId: state.authUserId!,
+        ids: isFollowing
+          ? (current?.userId === state.authUserId ? current.ids : []).filter((followedId) => followedId !== id)
+          : [...(current?.userId === state.authUserId ? current.ids : []), id],
+      }));
+    } catch (error) {
+      setFollowError(error instanceof Error ? error.message : "Could not update follow status.");
+    } finally {
+      setFollowBusy(false);
+    }
+  }
 
   if (!profile || !stats) {
     return (
@@ -57,8 +110,9 @@ export default function UserProfile() {
             {!isCurrentUser && (
               <Button
                 secondary
-                label="Add friends"
-                onPress={() => router.push("/friends")}
+                label={followBusy ? "Saving…" : isFollowing ? "Following · Unfollow" : state.authUserId ? "Follow" : "Log in to follow"}
+                disabled={followBusy}
+                onPress={toggleFollow}
               />
             )}
           </View>
@@ -73,12 +127,9 @@ export default function UserProfile() {
             <Pill>{stats.accuracy}% prediction accuracy</Pill>
           </View>
           <Text style={s.body}>Showing up, one challenge at a time.</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("/friends")}
-            style={({ pressed }) => [styles.metaLink, pressed && s.pressed]}
-          >
-            <Text style={s.bold}>Follow their progress</Text>
+          {!!followError && <Text accessibilityLiveRegion="polite" style={styles.followError}>{followError}</Text>}
+          <Pressable accessibilityRole="button" onPress={() => router.push("/friends")} style={({ pressed }) => [styles.metaLink, pressed && s.pressed]}>
+            <Text style={s.bold}>Find more people</Text>
           </Pressable>
         </View>
       </View>
@@ -133,6 +184,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 24, fontWeight: "800", color: c.text },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginVertical: 4 },
   metaLink: { minHeight: 44, justifyContent: "center" },
+  followError: { color: c.red, fontSize: 11 },
   posts: {
     borderRadius: 16,
     overflow: "hidden",

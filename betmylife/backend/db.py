@@ -63,3 +63,25 @@ def init_db() -> None:
                 cursor.execute(f"SHOW COLUMNS FROM users LIKE '{column}'")
                 if not cursor.fetchone():
                     cursor.execute(f"ALTER TABLE users ADD COLUMN {column} {definition}")
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_app_states (
+                    user_id VARCHAR(64) PRIMARY KEY,
+                    version INT NOT NULL DEFAULT 1,
+                    state_json JSON NOT NULL,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        ON UPDATE CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_follows (
+                    follower_id VARCHAR(64) NOT NULL,
+                    followed_id VARCHAR(64) NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (follower_id, followed_id),
+                    INDEX idx_user_follows_followed (followed_id)
+                )
+                """
+            )

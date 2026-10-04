@@ -49,4 +49,19 @@ GET   /users/{user_id}/profile
 PATCH /users/{user_id}/profile
 ```
 
-`/db/init` creates the `users` table but does not create a demo account. This keeps real account creation separate from the schema setup.
+`/db/init` creates the user, follow, and per-user app-state tables but does not create a demo account. This keeps real account creation separate from schema setup.
+
+After login, the mobile app loads and saves its challenges, predictions, balance, point activity, owned cosmetics, equipped cosmetics, and friend IDs through:
+
+```text
+GET /users/{user_id}/app-state
+PUT /users/{user_id}/app-state
+```
+
+Follow relationships are stored separately and can be managed from a user's profile:
+
+```text
+GET    /users/{user_id}/following
+PUT    /users/{user_id}/following/{followed_id}
+DELETE /users/{user_id}/following/{followed_id}
+```

@@ -6,6 +6,13 @@
 export const japanese: Record<string, string> = {
   Back: "戻る",
   "Add friends": "友達を追加",
+  Follow: "フォローする",
+  "Following · Unfollow": "フォロー中 · 解除",
+  "Log in to follow": "ログインしてフォロー",
+  "Saving…": "保存中…",
+  "Find more people": "ほかのユーザーを探す",
+  "Demo profiles · your friend list is saved to your account.":
+    "デモプロフィール · 友達リストはアカウントに保存されます。",
   Post: "投稿",
   "Post a challenge": "チャレンジを投稿",
   "All posts": "すべて",
@@ -44,7 +51,7 @@ export const japanese: Record<string, string> = {
   "Delete this challenge?": "この投稿を削除しますか？",
   Cancel: "キャンセル",
   Delete: "削除",
-  "Read QR from screenshot": "スクリーンショットからQRを読み取る",
+  "Read QR from image": "スクリーンショットからQRを読み取る",
   "No QR code found in this image.":
     "この画像からQRコードを見つけられませんでした。",
   "Could not read this image. Try a clearer QR screenshot.":
@@ -152,8 +159,8 @@ export const japanese: Record<string, string> = {
     "小さな努力が順位につながる。次のチャレンジへ進もう。",
   "Your circle": "あなたの仲間",
   "THIS WEEK · DEMO": "今週 · デモ",
-  "One shared PT balance powers predictions, challenge results and Shop rewards.":
-    "共通のポイント残高を予想・チャレンジ結果・ショップで使います。",
+  "Weekly points celebrate progress. Shop points are yours to spend.":
+    "週間ポイントは成果の記録。ショップの残高とは別です。",
   "YOUR LITTLE CORNER": "あなたのスペース",
   "Main character energy.": "自分らしさを、もっと。",
   "Making little promises. Keeping big dreams.":
@@ -184,7 +191,7 @@ export const japanese: Record<string, string> = {
   "The good stuff.": "がんばった自分にご褒美。",
   "Turn your everyday wins into a little self-expression.":
     "日々の達成を、自分らしいスタイルに。",
-  "YOUR POINT BALANCE": "ポイント残高",
+  "YOUR POINTS WALLET": "使えるポイント",
   "Earn by showing up. Spend on standing out.":
     "挑戦で貯めて、自分らしさに使おう。",
   "All rewards": "すべて",

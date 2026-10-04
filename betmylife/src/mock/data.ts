@@ -118,20 +118,6 @@ export type Challenge = {
   visibility: Visibility;
   titleJa?: string;
   proofPlan?: VerificationPlan;
-  result?: "success" | "failed";
-  pointsSettled?: boolean;
-};
-
-export type PointTransactionReason = "challenge_success" | "challenge_failure" | "prediction_stake" | "prediction_win" | "prediction_refund" | "shop_purchase";
-export type PointTransaction = {
-  id: string;
-  userId: string;
-  amount: number;
-  reason: PointTransactionReason;
-  challengeId?: string;
-  predictionId?: string;
-  itemId?: string;
-  createdAt: string;
 };
 export const currentUser = {
   name: "Fuka",
@@ -142,11 +128,12 @@ export const currentUser = {
   streak: 5,
   completed: 12,
 };
-export const initialPointsBalance = 420;
+export const initialWallet = 420;
 const demoClock = Date.now();
 const todayNinePm = new Date(demoClock);
 todayNinePm.setHours(21, 0, 0, 0);
-if (todayNinePm.getTime() <= demoClock) todayNinePm.setDate(todayNinePm.getDate() + 1);
+if (todayNinePm.getTime() <= demoClock)
+  todayNinePm.setDate(todayNinePm.getDate() + 1);
 export const challenges: Challenge[] = [
   {
     id: "read-today",
@@ -180,7 +167,8 @@ export const challenges: Challenge[] = [
           config: { minimumMinutes: 20 },
         },
       ],
-      explanation: "A timer is a simple way to keep this small reading promise.",
+      explanation:
+        "A timer is a simple way to keep this small reading promise.",
       verificationStrength: "medium",
       fallbackAllowed: true,
     },
@@ -212,12 +200,14 @@ export const challenges: Challenge[] = [
           id: "gym-photo",
           method: "photo",
           label: "Gym Progress Photo",
-          instructions: "Upload a photo from one of your completed gym sessions.",
+          instructions:
+            "Upload a photo from one of your completed gym sessions.",
           required: true,
           config: { minimumPhotos: 1 },
         },
       ],
-      explanation: "A photo can show visible progress without pretending to use location tracking.",
+      explanation:
+        "A photo can show visible progress without pretending to use location tracking.",
       verificationStrength: "medium",
       fallbackAllowed: true,
     },
@@ -230,7 +220,9 @@ export const challenges: Challenge[] = [
     title: "Finish my assignment before dinner",
     category: "Study",
     deadline: "5h 15m remaining",
-    deadlineAt: new Date(demoClock + 5 * 60 * 60 * 1000 + 15 * 60 * 1000).toISOString(),
+    deadlineAt: new Date(
+      demoClock + 5 * 60 * 60 * 1000 + 15 * 60 * 1000,
+    ).toISOString(),
     confidence: 70,
     probability: 65,
     yesOdds: "1.54",
@@ -249,7 +241,8 @@ export const challenges: Challenge[] = [
           id: "assignment-photo",
           method: "photo",
           label: "Finished Assignment",
-          instructions: "Upload a photo of your finished assignment before dinner.",
+          instructions:
+            "Upload a photo of your finished assignment before dinner.",
           required: true,
           config: { minimumPhotos: 1 },
         },
@@ -321,14 +314,6 @@ export type Reward = {
 };
 export const rewards: Reward[] = [
   {
-    id: "purple-orbit-frame",
-    name: "Purple Orbit Frame",
-    price: 250,
-    asset: "framePurpleAura",
-    color: "#E9E5FA",
-    slot: "Frame",
-  },
-  {
     id: "sunny-frame",
     name: "Sunny Vibes Frame",
     price: 200,
@@ -344,10 +329,6 @@ export const rewards: Reward[] = [
     color: "#E9E5FA",
     slot: "Frame",
   },
-  { id: "fire-frame", name: "Fire Frame", price: 280, asset: "frameFire", color: "#FFE3D9", slot: "Frame" },
-  { id: "electric-frame", name: "Electric Frame", price: 300, asset: "frameGalaxy", color: "#DDF7FA", slot: "Frame" },
-  { id: "champion-frame", name: "Champion Frame", price: 400, asset: "frameSunny", color: "#FFF3CE", slot: "Frame" },
-  { id: "sunshine-background", name: "Sunshine Morning Background", price: 220, asset: "stickerBrighterDays", color: "#FFF0BA", slot: "Background" },
   {
     id: "focused-title",
     name: "Focused Title",
@@ -392,7 +373,7 @@ export const categoryStats = [
   { name: "Fitness", asset: "iconFitness", value: 80 },
   { name: "Lifestyle", asset: "iconLifestyle", value: 58 },
   { name: "Wake Up", asset: "iconStreak", value: 45 },
- ] as const;
+] as const;
 export const insights = [
   {
     asset: "iconFitness",
@@ -409,4 +390,4 @@ export const insights = [
     title: "A little optimistic? We love it.",
     text: "Your confidence is usually slightly higher than your actual completion rate.",
   },
- ] as const;
+] as const;
