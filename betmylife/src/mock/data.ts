@@ -123,6 +123,7 @@ export type Challenge = {
   proofPlan?: VerificationPlan;
   proofPlanSource?: "gemini" | "fallback" | "manual";
   ownerId?: string;
+  ownerUsername?: string;
   createdAt?: string;
   result?: ChallengeResult;
   pointsSettled?: boolean;

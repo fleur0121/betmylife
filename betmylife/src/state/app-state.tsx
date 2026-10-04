@@ -199,8 +199,10 @@ export function appReducer(state: State, action: Action): State {
     case "place-prediction": {
       const prediction = action.prediction;
       const challenge = state.challenges.find((item) => item.id === prediction.challengeId);
-      const user = friendDirectory.find((item) => item.id === prediction.userId);
-      const author = challenge && friendDirectory.find((item) => item.name === challenge.user);
+      const user = state.authUserId ? { id: state.authUserId } : null;
+      const author = challenge
+        ? { id: challenge.ownerId ?? challenge.user }
+        : null;
       const odds = challenge && Number(prediction.choice === "yes" ? challenge.yesOdds : challenge.noOdds);
       const previous = Object.values(state.stakedPredictions).find((item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && item.status === "active");
       const settledBefore = Object.values(state.stakedPredictions).some((item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && (item.status === "won" || item.status === "lost"));

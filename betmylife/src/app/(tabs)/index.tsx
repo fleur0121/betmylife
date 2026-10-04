@@ -99,6 +99,7 @@ export default function Home() {
           challenges: items.map((item) => ({
             id: item.id,
             ownerId: item.user_id,
+            ownerUsername: item.user_handle,
             user: item.user_name,
             avatar: "🌷",
             color: c.lavender,
@@ -179,6 +180,8 @@ export default function Home() {
           ? friendNames.includes(item.user)
           : !!state.predictions[item.id]),
   );
+  const feedEyebrow = filter === "Public" ? "PUBLIC" : filter === "Friends" ? "YOUR FRIENDS" : "YOUR ACTIVITY";
+  const feedTitle = filter === "Public" ? "Public challenges" : filter === "Friends" ? "Friends’ challenges" : "Your picks";
   const dateStrip = Array.from({ length: 21 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() + index - 10);
@@ -439,40 +442,44 @@ export default function Home() {
                   </Text>
                 </View>
               )}
-              {myPicks.length > 0 && (
-                <View style={styles.myChallengesBlock}>
+              <View style={styles.myChallengesBlock}>
                   <View style={styles.myChallengesHeading}>
                     <Text style={styles.feedEyebrow}>YOUR PICKS</Text>
-                    <Text style={styles.myChallengesHint}>Swipe to view</Text>
+                    {myPicks.length > 0 && <Text style={styles.myChallengesHint}>Swipe to view</Text>}
                   </View>
-                  <ScrollView
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.myChallengesRow}
-                  >
-                    {myPicks.map(({ challenge, choice, odds }) => (
-                      <View key={challenge.id} style={styles.myPickSlide}>
-                        <View style={styles.myChallengeTopline}>
-                          <Text style={styles.myChallengeCategory}>BET PLACED</Text>
-                          <Text style={styles.myPickChoice}>{choice.toUpperCase()}</Text>
+                  {myPicks.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.myChallengesRow}
+                    >
+                      {myPicks.map(({ challenge, choice, odds }) => (
+                        <View key={challenge.id} style={styles.myPickSlide}>
+                          <View style={styles.myChallengeTopline}>
+                            <Text style={styles.myChallengeCategory}>BET PLACED</Text>
+                            <Text style={styles.myPickChoice}>{choice.toUpperCase()}</Text>
+                          </View>
+                          <Text numberOfLines={2} style={styles.myChallengeTitle}>
+                            {challenge.title}
+                          </Text>
+                          <View style={styles.myPickBottomline}>
+                            <Text style={styles.myChallengeDeadline}>Current odds</Text>
+                            <Text style={styles.myPickOdds}>×{odds}</Text>
+                          </View>
                         </View>
-                        <Text numberOfLines={2} style={styles.myChallengeTitle}>
-                          {challenge.title}
-                        </Text>
-                        <View style={styles.myPickBottomline}>
-                          <Text style={styles.myChallengeDeadline}>Current odds</Text>
-                          <Text style={styles.myPickOdds}>×{odds}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </ScrollView>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.myPickEmpty}>
+                      <Text style={s.muted}>You haven’t placed a pick yet.</Text>
+                    </View>
+                  )}
                 </View>
-              )}
               <View style={styles.statsRow}>
                 <StatTile
                   asset="iconStreak"
-                  value={String(state.challenges.length)}
+                  value={String(myChallenges.length)}
                   label="MY CHALLENGES"
                   color={c.peach}
                 />
@@ -491,8 +498,8 @@ export default function Home() {
               </View>
               <View style={styles.feedHeading}>
                 <View>
-                  <Text style={styles.feedEyebrow}>YOUR CIRCLE</Text>
-                  <Text style={styles.feedTitle}>Friends’ Challenges</Text>
+                  <Text style={styles.feedEyebrow}>{feedEyebrow}</Text>
+                  <Text style={styles.feedTitle}>{feedTitle}</Text>
                 </View>
                 <Pressable
                   accessibilityRole="button"
@@ -787,6 +794,7 @@ const styles = StyleSheet.create({
   myPickChoice: { color: c.green, fontSize: 11, fontWeight: "900" },
   myPickBottomline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   myPickOdds: { color: c.primaryDark, fontSize: 22, fontWeight: "900" },
+  myPickEmpty: { minHeight: 72, paddingHorizontal: 16, justifyContent: "center" },
   emptyHero: {
     marginHorizontal: 14,
     minHeight: 270,

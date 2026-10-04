@@ -93,6 +93,20 @@ def init_db() -> None:
                 )
                 """)
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS friend_requests (
+                    id VARCHAR(64) PRIMARY KEY,
+                    requester_id VARCHAR(64) NOT NULL,
+                    recipient_id VARCHAR(64) NOT NULL,
+                    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    responded_at TIMESTAMP NULL,
+                    INDEX idx_friend_requests_recipient (recipient_id, status, created_at),
+                    INDEX idx_friend_requests_requester (requester_id, status),
+                    CONSTRAINT fk_friend_requests_requester FOREIGN KEY (requester_id) REFERENCES users(id),
+                    CONSTRAINT fk_friend_requests_recipient FOREIGN KEY (recipient_id) REFERENCES users(id)
+                )
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS user_achievements (
                     user_id VARCHAR(64) NOT NULL,
                     badge_id VARCHAR(64) NOT NULL,

@@ -186,6 +186,19 @@ class FollowingResponse(BaseModel):
     followed_ids: list[str]
 
 
+class FriendRequestResponse(BaseModel):
+    id: str
+    requester_id: str
+    requester_name: str
+    requester_username: str
+    status: Literal["pending", "accepted", "declined"]
+    created_at: str
+
+
+class FriendRequestDecision(BaseModel):
+    decision: Literal["accept", "decline"]
+
+
 class BadgeClaimResponse(BaseModel):
     badge_id: str
     unlocked_at: str
@@ -212,6 +225,7 @@ class ChallengeResponse(ChallengeCreateRequest):
     id: str
     user_id: str
     user_name: str
+    user_handle: str
     created_at: str
     probability: float
     yes_odds: float
@@ -558,6 +572,7 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         id=row["id"],
         user_id=row["user_id"],
         user_name=row["user_name"],
+        user_handle=row["user_handle"],
         title=row["title"],
         category=row["category"],
         difficulty=row["difficulty"],
@@ -690,7 +705,8 @@ def create_challenge(
                 ),
             )
             cursor.execute(
-                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name,
+                u.username AS user_handle
                 FROM challenges c JOIN users u ON u.id = c.user_id WHERE c.id = %s""",
                 (challenge_id,),
             )
@@ -699,7 +715,7 @@ def create_challenge(
 
 @app.get("/users/{user_id}/challenges", response_model=list[ChallengeResponse])
 def list_challenges(
-    user_id: str, limit: int = 50, offset: int = 0
+    user_id: str, viewer_id: str | None = None, limit: int = 50, offset: int = 0
 ) -> list[ChallengeResponse]:
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
@@ -708,11 +724,20 @@ def list_challenges(
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
+            can_view_private = viewer_id is None or viewer_id == user_id
+            if viewer_id and viewer_id != user_id:
+                cursor.execute(
+                    "SELECT 1 FROM user_follows WHERE follower_id = %s AND followed_id = %s",
+                    (viewer_id, user_id),
+                )
+                can_view_private = cursor.fetchone() is not None
             cursor.execute(
-                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name,
+                u.username AS user_handle
                 FROM challenges c JOIN users u ON u.id = c.user_id
-                WHERE c.user_id = %s ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
-                (user_id, limit, offset),
+                WHERE c.user_id = %s AND (%s = 1 OR c.visibility = 'public')
+                ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
+                (user_id, int(can_view_private), limit, offset),
             )
             return [_challenge_response(row) for row in cursor.fetchall()]
 
@@ -735,7 +760,8 @@ def list_public_challenges(
                         status_code=404, detail="User not found"
                     )
             cursor.execute(
-                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name,
+                u.username AS user_handle
                 FROM challenges c JOIN users u ON u.id = c.user_id
                 WHERE c.visibility = 'public' OR (%s IS NOT NULL AND c.user_id = %s)
                 ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
@@ -1008,6 +1034,70 @@ def unfollow_user(user_id: str, followed_id: str) -> None:
                 "DELETE FROM user_follows WHERE follower_id = %s AND followed_id = %s",
                 (user_id, followed_id),
             )
+
+
+def _friend_request(row: dict) -> FriendRequestResponse:
+    return FriendRequestResponse(**{**row, "created_at": _timestamp(row["created_at"])})
+
+
+@app.post("/users/{user_id}/friend-requests/{recipient_id}", response_model=FriendRequestResponse, status_code=201)
+def send_friend_request(user_id: str, recipient_id: str) -> FriendRequestResponse:
+    if user_id == recipient_id:
+        raise HTTPException(status_code=400, detail="You cannot send a request to yourself")
+    request_id = str(uuid.uuid4())
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id IN (%s, %s)", (user_id, recipient_id))
+            if len(cursor.fetchall()) != 2:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute("SELECT 1 FROM user_follows WHERE follower_id = %s AND followed_id = %s", (user_id, recipient_id))
+            if cursor.fetchone():
+                raise HTTPException(status_code=409, detail="You are already friends")
+            cursor.execute("SELECT id FROM friend_requests WHERE requester_id = %s AND recipient_id = %s AND status = 'pending'", (user_id, recipient_id))
+            if cursor.fetchone():
+                raise HTTPException(status_code=409, detail="Friend request already sent")
+            cursor.execute("INSERT INTO friend_requests (id, requester_id, recipient_id) VALUES (%s, %s, %s)", (request_id, user_id, recipient_id))
+            cursor.execute("""SELECT r.id, r.requester_id,
+                COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS requester_name,
+                u.username AS requester_username, r.status, r.created_at
+                FROM friend_requests r JOIN users u ON u.id = r.requester_id WHERE r.id = %s""", (request_id,))
+            return _friend_request(cursor.fetchone())
+
+
+@app.get("/users/{user_id}/friend-requests", response_model=list[FriendRequestResponse])
+def get_friend_requests(user_id: str) -> list[FriendRequestResponse]:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute("""SELECT r.id, r.requester_id,
+                COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS requester_name,
+                u.username AS requester_username, r.status, r.created_at
+                FROM friend_requests r JOIN users u ON u.id = r.requester_id
+                WHERE r.recipient_id = %s AND r.status = 'pending' ORDER BY r.created_at DESC""", (user_id,))
+            return [_friend_request(row) for row in cursor.fetchall()]
+
+
+@app.patch("/users/{user_id}/friend-requests/{request_id}", response_model=FriendRequestResponse)
+def respond_to_friend_request(user_id: str, request_id: str, request: FriendRequestDecision) -> FriendRequestResponse:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id, requester_id, recipient_id, status FROM friend_requests WHERE id = %s AND recipient_id = %s", (request_id, user_id))
+            existing = cursor.fetchone()
+            if existing is None:
+                raise HTTPException(status_code=404, detail="Friend request not found")
+            if existing["status"] != "pending":
+                raise HTTPException(status_code=409, detail="Friend request already handled")
+            status = "accepted" if request.decision == "accept" else "declined"
+            cursor.execute("UPDATE friend_requests SET status = %s, responded_at = CURRENT_TIMESTAMP WHERE id = %s", (status, request_id))
+            if status == "accepted":
+                cursor.execute("INSERT IGNORE INTO user_follows (follower_id, followed_id) VALUES (%s, %s), (%s, %s)", (existing["requester_id"], user_id, user_id, existing["requester_id"]))
+            cursor.execute("""SELECT r.id, r.requester_id,
+                COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS requester_name,
+                u.username AS requester_username, r.status, r.created_at
+                FROM friend_requests r JOIN users u ON u.id = r.requester_id WHERE r.id = %s""", (request_id,))
+            return _friend_request(cursor.fetchone())
 
 
 @app.post("/translate", response_model=TranslateResponse)

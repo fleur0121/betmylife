@@ -20,6 +20,7 @@ export type SavedChallenge = {
   id: string;
   user_id: string;
   user_name: string;
+  user_handle: string;
   title: string;
   category: Challenge["category"];
   difficulty: number;

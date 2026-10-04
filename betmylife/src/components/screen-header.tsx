@@ -6,7 +6,7 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Image } from 'expo-image';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './localized-text';
 import { palette as c } from '@/constants/design';
 import { useLanguage } from '@/i18n/language';
@@ -60,7 +60,7 @@ export function ScreenHeader({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Notifications"
-          onPress={() => Alert.alert(t('All caught up'), t('Your circle is waiting for its next prediction.'))}
+          onPress={() => router.push({ pathname: '/notifications' } as never)}
           style={({ pressed }) => [styles.iconButton, pressed && { opacity: 0.55 }]}
         >
           <SymbolView

@@ -109,20 +109,19 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
   if (ownChallenge) {
     return (
       <View style={[styles.ownPanel, panelStyle]}>
-        <Text style={styles.ownEyebrow}>YOUR CHALLENGE</Text>
+        <View style={styles.ownHeader}>
+          <Text style={styles.ownEyebrow}>YOUR CHALLENGE</Text>
+          <Text style={styles.currentOddsLabel}>CURRENT ODDS</Text>
+        </View>
         <Text style={styles.ownCopy}>Friends can predict how you’ll do.</Text>
-        <View style={styles.ownOdds}>
-          <Text style={styles.ownOddsHeading}>YOUR CHALLENGE ODDS</Text>
-          <View style={styles.ownOddsRow}>
-            <View style={styles.ownOddsItem}>
-              <Text style={styles.ownOddsYesLabel}>YES</Text>
-              <Text style={styles.ownOddsValue}>×{Number(challenge.yesOdds).toFixed(2)}</Text>
-            </View>
-            <View style={styles.ownOddsDivider} />
-            <View style={styles.ownOddsItem}>
-              <Text style={styles.ownOddsNoLabel}>NO</Text>
-              <Text style={styles.ownOddsValue}>×{Number(challenge.noOdds).toFixed(2)}</Text>
-            </View>
+        <View style={styles.ownOddsRow}>
+          <View style={[styles.ownOddsCard, styles.ownOddsYesCard]}>
+            <Text style={styles.ownOddsLabel}>YES</Text>
+            <Text style={styles.ownOddsYes}>×{Number(challenge.yesOdds).toFixed(2)}</Text>
+          </View>
+          <View style={[styles.ownOddsCard, styles.ownOddsNoCard]}>
+            <Text style={styles.ownOddsLabel}>NO</Text>
+            <Text style={styles.ownOddsNo}>×{Number(challenge.noOdds).toFixed(2)}</Text>
           </View>
         </View>
       </View>
@@ -381,18 +380,19 @@ const styles = StyleSheet.create({
   featuredHint: { color: "#DCE7FF" },
   disabled: { opacity: 0.55 },
   ownPanel: { padding: 12, borderRadius: 16, backgroundColor: c.lavenderLight },
-  ownOdds: { marginTop: 11, paddingTop: 9, borderTopWidth: 1, borderTopColor: c.lavender },
-  ownOddsHeading: { color: c.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
-  ownOddsRow: { flexDirection: "row", alignItems: "center", marginTop: 7 },
-  ownOddsItem: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 3 },
-  ownOddsDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: c.lavender },
-  ownOddsYesLabel: { color: c.green, fontSize: 10, fontWeight: "900" },
-  ownOddsNoLabel: { color: c.coral, fontSize: 10, fontWeight: "900" },
-  ownOddsValue: { color: c.text, fontSize: 15, fontWeight: "900" },
+  ownHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   feedPanel: {},
   featuredPanel: { marginTop: 9, backgroundColor: "rgba(255,255,255,0.96)" },
   ownEyebrow: { color: c.primaryDark, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  currentOddsLabel: { color: c.muted, fontSize: 9, fontWeight: "900", letterSpacing: 0.7 },
   ownCopy: { marginTop: 3, color: c.text, fontSize: 12, fontWeight: "600" },
+  ownOddsRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  ownOddsCard: { flex: 1, minHeight: 54, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  ownOddsYesCard: { backgroundColor: "#DDF6EC" },
+  ownOddsNoCard: { backgroundColor: "#FFE5E8" },
+  ownOddsLabel: { color: c.muted, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },
+  ownOddsYes: { color: c.green, fontSize: 21, fontWeight: "900" },
+  ownOddsNo: { color: c.red, fontSize: 21, fontWeight: "900" },
   lockedPanel: { padding: 12, borderRadius: 17, backgroundColor: c.lavenderLight, borderWidth: 1, borderColor: c.lavender },
   currentBet: { marginTop: 8, padding: 12, borderRadius: 17, backgroundColor: c.lavenderLight, borderWidth: 1, borderColor: c.lavender },
   currentBetFeatured: { backgroundColor: "rgba(255,255,255,0.96)", borderColor: "rgba(255,255,255,0.6)" },
