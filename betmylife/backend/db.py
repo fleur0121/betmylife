@@ -149,10 +149,34 @@ def init_db() -> None:
                 ("prediction_meta_json", "JSON NULL"),
                 ("result", "VARCHAR(16) NULL"),
                 ("resolved_at", "DATETIME(6) NULL"),
+                ("yes_pool", "INT NOT NULL DEFAULT 0"),
+                ("no_pool", "INT NOT NULL DEFAULT 0"),
             ):
                 cursor.execute(f"SHOW COLUMNS FROM challenges LIKE '{column}'")
                 if not cursor.fetchone():
                     cursor.execute(f"ALTER TABLE challenges ADD COLUMN {column} {definition}")
+            # One fixed-odds bet per user per challenge. challenges.yes_pool/no_pool are
+            # running totals of these stakes, kept in the same transaction as the insert.
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS challenge_predictions (
+                    id VARCHAR(64) PRIMARY KEY,
+                    challenge_id VARCHAR(64) NOT NULL,
+                    user_id VARCHAR(64) NOT NULL,
+                    choice VARCHAR(3) NOT NULL,
+                    stake INT NOT NULL,
+                    locked_odds DECIMAL(8,2) NOT NULL,
+                    status VARCHAR(8) NOT NULL DEFAULT 'active',
+                    payout INT NULL,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    settled_at DATETIME(6) NULL,
+                    UNIQUE KEY uq_challenge_predictions_user (challenge_id, user_id),
+                    INDEX idx_challenge_predictions_user (user_id, created_at),
+                    CONSTRAINT fk_challenge_predictions_challenge
+                        FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+                    CONSTRAINT fk_challenge_predictions_user
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ml_observations (
                     id VARCHAR(64) PRIMARY KEY,

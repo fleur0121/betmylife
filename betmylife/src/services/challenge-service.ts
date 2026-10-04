@@ -27,8 +27,13 @@ export type SavedChallenge = {
   deadline_at: string;
   deadline_label: string;
   probability: number;
+  /** Live odds: the ML opening line leaned by the stakes placed on each side. */
   yes_odds: number;
   no_odds: number;
+  opening_yes_odds: number;
+  opening_no_odds: number;
+  yes_pool: number;
+  no_pool: number;
   proof_plan: Challenge["proofPlan"];
   result: Challenge["result"];
   resolved_at: string | null;
@@ -75,4 +80,32 @@ export async function recordChallengeResult(userId: string, challengeId: string,
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail ?? `Challenge result save failed (${response.status}).`);
   return body as { status: string; result: "success" | "failed"; created: boolean };
+}
+
+export type PlacedPrediction = {
+  id: string;
+  challenge_id: string;
+  user_id: string;
+  choice: "yes" | "no";
+  stake: number;
+  locked_odds: number;
+  potential_return: number;
+  status: string;
+  /** Apply together with `transaction`, or the next app-state save deducts the stake again. */
+  wallet: number;
+  transaction: { id: string; reason: string; amount: number; challengeId: string; createdAt: string };
+  yes_odds: number;
+  no_odds: number;
+};
+
+/** Places a fixed-odds bet. Rejected with 409 if the live odds dropped below `expectedOdds`. */
+export async function placePrediction(userId: string, challengeId: string, choice: "yes" | "no", stake: number, expectedOdds: number) {
+  const response = await fetch(`${API_URL}/users/${userId}/challenges/${challengeId}/predictions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ choice, stake, expected_odds: expectedOdds }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail?.message ?? body.detail ?? `Prediction failed (${response.status}).`);
+  return body as PlacedPrediction;
 }

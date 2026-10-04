@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import secrets
 import uuid
+from datetime import datetime, timezone
 from typing import Literal
 
 from dotenv import load_dotenv
@@ -20,6 +21,10 @@ try:
     from .challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 except ImportError:
     from challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
+try:
+    from . import betting
+except ImportError:
+    import betting
 try:
     from .db import get_connection, init_db
 except ImportError:  # Supports `uvicorn main:app` from the backend directory.
@@ -204,8 +209,13 @@ class ChallengeResponse(ChallengeCreateRequest):
     user_id: str
     created_at: str
     probability: float
+    # Live odds: the ML opening line leaned by the money staked on each side so far.
     yes_odds: float
     no_odds: float
+    opening_yes_odds: float
+    opening_no_odds: float
+    yes_pool: int = 0
+    no_pool: int = 0
     prediction_source: str = "fallback"
     prediction_model_version: str | None = None
     prediction_meta: dict | None = None
@@ -215,6 +225,31 @@ class ChallengeResponse(ChallengeCreateRequest):
 
 class ChallengeResultRequest(BaseModel):
     result: Literal["success", "failed"]
+
+
+class PredictionCreateRequest(BaseModel):
+    choice: Literal["yes", "no"]
+    stake: int = Field(ge=betting.MIN_STAKE, le=betting.MAX_STAKE)
+    # The odds the user was shown. The bet is refused if the live odds have since dropped
+    # below this, so nobody gets a worse price than they agreed to.
+    expected_odds: float | None = Field(default=None, gt=0)
+
+
+class PredictionResponse(BaseModel):
+    id: str
+    challenge_id: str
+    user_id: str
+    choice: Literal["yes", "no"]
+    stake: int
+    locked_odds: float
+    potential_return: int
+    status: str
+    wallet: int
+    # Ledger row the stake created; a client applying `wallet` must also add this row
+    # to its transactions so the next app-state save does not deduct the stake again.
+    transaction: dict
+    yes_odds: float
+    no_odds: float
 
 
 def is_profile_complete(user: dict) -> bool:
@@ -484,6 +519,10 @@ def save_app_state(user_id: str, request: AppStateRequest) -> dict[str, str]:
                     }
                 for row in point_rows:
                     if row["reason"] not in transaction_ids:
+                        # Bets are staked and paid out on the server, so a client that
+                        # has not reloaded since has neither the row nor the amount.
+                        if row["reason"].startswith(betting.SERVER_LEDGER_PREFIXES):
+                            wallet += row["amount"]
                         transactions.append(
                             {
                                 "id": row["reason"],
@@ -544,6 +583,7 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         return value
 
     resolved_at = row.get("resolved_at")
+    yes_odds, no_odds = betting.challenge_live_odds(row)
     return ChallengeResponse(
         id=row["id"],
         user_id=row["user_id"],
@@ -555,8 +595,12 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         deadline_at=row["deadline_at"].isoformat(),
         deadline_label=row["deadline_label"],
         probability=float(row["probability"]),
-        yes_odds=float(row["yes_odds"]),
-        no_odds=float(row["no_odds"]),
+        yes_odds=yes_odds,
+        no_odds=no_odds,
+        opening_yes_odds=float(row["yes_odds"]),
+        opening_no_odds=float(row["no_odds"]),
+        yes_pool=int(row.get("yes_pool") or 0),
+        no_pool=int(row.get("no_pool") or 0),
         analysis=load_json("analysis_json"),
         proof_plan=load_json("proof_plan_json"),
         user_input=load_json("user_input_json"),
@@ -720,6 +764,9 @@ def record_challenge_result(
                         "UPDATE challenges SET result = %s, resolved_at = %s WHERE id = %s",
                         (request.result, resolved_at, challenge_id),
                     )
+                    _settle_predictions(
+                        cursor, challenge_id, request.result, resolved_at
+                    )
                 metadata = _state_data(challenge.get("prediction_meta_json"))
                 features = _state_data(metadata.get("ml_request"))
                 analysis = _state_data(challenge.get("analysis_json"))
@@ -770,6 +817,199 @@ def record_challenge_result(
         except Exception:
             connection.rollback()
             raise
+
+
+def _apply_server_ledger(
+    cursor, user_id: str, reason: str, amount: int, challenge_id: str
+) -> tuple[int, dict]:
+    """Move points in a user's wallet from the server, once per reason.
+
+    Keeps users.points, point_transactions and the saved app state in step, the same
+    way badge claims do. Raises 409 when a debit would overdraw the wallet.
+    """
+    cursor.execute(
+        "SELECT id, points FROM users WHERE id = %s FOR UPDATE", (user_id,)
+    )
+    user = cursor.fetchone()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    cursor.execute(
+        "SELECT state_json FROM user_app_states WHERE user_id = %s FOR UPDATE",
+        (user_id,),
+    )
+    saved = cursor.fetchone()
+    data = _state_data(saved["state_json"]) if saved else {}
+    wallet = max(int(user["points"] or 0), int(data.get("wallet", 0) or 0))
+    transactions = list(data.get("transactions") or [])
+    existing = next(
+        (
+            item
+            for item in transactions
+            if isinstance(item, dict) and item.get("id") == reason
+        ),
+        None,
+    )
+    transaction = existing or {
+        "id": reason,
+        "reason": reason,
+        "amount": amount,
+        "challengeId": challenge_id,
+        "createdAt": _timestamp(datetime.now(timezone.utc)),
+    }
+    if wallet + amount < 0:
+        raise HTTPException(status_code=409, detail="Not enough points")
+    cursor.execute(
+        "INSERT IGNORE INTO point_transactions (user_id, reason, amount) VALUES (%s, %s, %s)",
+        (user_id, reason, amount),
+    )
+    if cursor.rowcount == 0:
+        return wallet, transaction
+    wallet += amount
+    cursor.execute(
+        "UPDATE users SET points = %s WHERE id = %s", (wallet, user_id)
+    )
+    if saved:
+        if existing is None:
+            transactions.append(transaction)
+        data["transactions"] = transactions
+        data["wallet"] = wallet
+        data["pointsBalance"] = wallet
+        cursor.execute(
+            "UPDATE user_app_states SET state_json = %s WHERE user_id = %s",
+            (json.dumps(data, separators=(",", ":"), ensure_ascii=False), user_id),
+        )
+    return wallet, transaction
+
+
+def _settle_predictions(cursor, challenge_id: str, result: str, settled_at) -> None:
+    winning_choice = "yes" if result == "success" else "no"
+    cursor.execute(
+        "SELECT id, user_id, choice, stake, locked_odds FROM challenge_predictions "
+        "WHERE challenge_id = %s AND status = 'active' FOR UPDATE",
+        (challenge_id,),
+    )
+    for prediction in cursor.fetchall():
+        won = prediction["choice"] == winning_choice
+        amount = (
+            betting.payout(prediction["stake"], float(prediction["locked_odds"]))
+            if won
+            else 0
+        )
+        if won:
+            _apply_server_ledger(
+                cursor,
+                prediction["user_id"],
+                betting.PAYOUT_REASON.format(prediction["id"]),
+                amount,
+                challenge_id,
+            )
+        cursor.execute(
+            "UPDATE challenge_predictions SET status = %s, payout = %s, settled_at = %s WHERE id = %s",
+            ("won" if won else "lost", amount, settled_at, prediction["id"]),
+        )
+
+
+@app.post(
+    "/users/{user_id}/challenges/{challenge_id}/predictions",
+    response_model=PredictionResponse,
+    status_code=201,
+)
+def place_prediction(
+    user_id: str, challenge_id: str, request: PredictionCreateRequest
+) -> PredictionResponse:
+    """Place a fixed-odds bet at the live price and lean the odds for the next bettor.
+
+    The challenge row is locked for the whole transaction, so two simultaneous bets
+    cannot both take the same price.
+    """
+    prediction_id = str(uuid.uuid4())
+    with get_connection() as connection:
+        try:
+            connection.begin()
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM challenges WHERE id = %s FOR UPDATE",
+                    (challenge_id,),
+                )
+                challenge = cursor.fetchone()
+                if challenge is None:
+                    raise HTTPException(status_code=404, detail="Challenge not found")
+                if challenge["user_id"] == user_id:
+                    raise HTTPException(
+                        status_code=403, detail="You cannot bet on your own challenge"
+                    )
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                if challenge.get("result") or now >= betting.betting_closes_at(
+                    challenge["deadline_at"]
+                ):
+                    raise HTTPException(status_code=409, detail="Betting is closed")
+                cursor.execute(
+                    "SELECT id FROM challenge_predictions WHERE challenge_id = %s AND user_id = %s",
+                    (challenge_id, user_id),
+                )
+                if cursor.fetchone() is not None:
+                    raise HTTPException(
+                        status_code=409, detail="You already bet on this challenge"
+                    )
+                yes_odds, no_odds = betting.challenge_live_odds(challenge)
+                locked_odds = yes_odds if request.choice == "yes" else no_odds
+                if (
+                    request.expected_odds is not None
+                    and locked_odds < request.expected_odds
+                ):
+                    raise HTTPException(
+                        status_code=409,
+                        detail={
+                            "message": "Odds changed",
+                            "yes_odds": yes_odds,
+                            "no_odds": no_odds,
+                        },
+                    )
+                wallet, transaction = _apply_server_ledger(
+                    cursor,
+                    user_id,
+                    betting.STAKE_REASON.format(prediction_id),
+                    -request.stake,
+                    challenge_id,
+                )
+                cursor.execute(
+                    """INSERT INTO challenge_predictions
+                    (id, challenge_id, user_id, choice, stake, locked_odds)
+                    VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (
+                        prediction_id,
+                        challenge_id,
+                        user_id,
+                        request.choice,
+                        request.stake,
+                        locked_odds,
+                    ),
+                )
+                pool = "yes_pool" if request.choice == "yes" else "no_pool"
+                cursor.execute(
+                    f"UPDATE challenges SET {pool} = {pool} + %s WHERE id = %s",
+                    (request.stake, challenge_id),
+                )
+                challenge[pool] = int(challenge.get(pool) or 0) + request.stake
+                next_yes, next_no = betting.challenge_live_odds(challenge)
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+    return PredictionResponse(
+        id=prediction_id,
+        challenge_id=challenge_id,
+        user_id=user_id,
+        choice=request.choice,
+        stake=request.stake,
+        locked_odds=locked_odds,
+        potential_return=betting.payout(request.stake, locked_odds),
+        status="active",
+        wallet=wallet,
+        transaction=transaction,
+        yes_odds=next_yes,
+        no_odds=next_no,
+    )
 
 
 @app.get("/users/{user_id}/badges")
