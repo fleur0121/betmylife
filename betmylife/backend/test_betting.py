@@ -136,8 +136,15 @@ class MemoryDb:
 
 
 class LiveOddsTests(unittest.TestCase):
-    def test_empty_pools_return_opening_odds(self):
-        self.assertEqual(betting.live_odds(0.4, 2.5, 1.67, 0, 0), (2.5, 1.67))
+    def test_empty_pools_return_opening_odds_less_margin(self):
+        with patch.object(betting, "HOUSE_MARGIN", 0):
+            self.assertEqual(betting.live_odds(0.4, 2.5, 1.67, 0, 0), (2.5, 1.67))
+        with patch.object(betting, "HOUSE_MARGIN", 0.05):
+            self.assertEqual(betting.live_odds(0.5, 2.0, 2.0, 0, 0), (1.9, 1.9))
+
+    def test_margin_gives_the_house_an_edge(self):
+        yes, no = betting.live_odds(0.4, 2.5, 1.67, 300, 100)
+        self.assertGreater(1 / yes + 1 / no, 1)
 
     def test_money_on_yes_shortens_yes_and_lengthens_no(self):
         yes, no = betting.live_odds(0.4, 2.5, 1.67, 200, 0)
@@ -146,7 +153,7 @@ class LiveOddsTests(unittest.TestCase):
 
     def test_one_max_bet_only_nudges_the_line(self):
         yes, _ = betting.live_odds(0.5, 2.0, 2.0, betting.MAX_STAKE, 0)
-        self.assertGreater(yes, 1.6)
+        self.assertGreater(yes, 1.5)
 
     def test_lopsided_pools_stay_bounded(self):
         yes, no = betting.live_odds(0.5, 2.0, 2.0, 10**9, 0)
@@ -182,21 +189,23 @@ class PlacePredictionTests(unittest.TestCase):
         return error.exception
 
     def test_bet_locks_live_odds_moves_pool_and_debits_wallet(self):
-        first = self.bet("alice", expected=2.5)
-        self.assertEqual(first.locked_odds, 2.5)
+        opening_yes, _ = betting.challenge_live_odds(self.db.challenges["c1"])
+        self.assertLess(opening_yes, 2.5)
+        first = self.bet("alice", expected=opening_yes)
+        self.assertEqual(first.locked_odds, opening_yes)
         self.assertEqual(first.wallet, 400)
         self.assertEqual(self.db.points["alice"], 400)
         self.assertEqual(self.db.states["alice"]["wallet"], 400)
         self.assertEqual(self.db.states["alice"]["transactions"], [first.transaction])
         self.assertEqual(self.db.challenges["c1"]["yes_pool"], 100)
-        self.assertLess(first.yes_odds, 2.5)
+        self.assertLess(first.yes_odds, opening_yes)
 
         second = self.bet("bob")
         self.assertEqual(second.locked_odds, first.yes_odds)
 
     def test_stale_expected_odds_are_refused_without_charging(self):
         self.bet("alice")
-        error = self.assert_http(409, lambda: self.bet("bob", expected=2.5))
+        error = self.assert_http(409, lambda: self.bet("bob", expected=2.3))
         self.assertEqual(error.detail["message"], "Odds changed")
         self.assertEqual(self.db.points["bob"], 500)
         self.assertEqual(self.db.challenges["c1"]["yes_pool"], 100)

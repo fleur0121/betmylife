@@ -209,7 +209,8 @@ class ChallengeResponse(ChallengeCreateRequest):
     user_id: str
     created_at: str
     probability: float
-    # Live odds: the ML opening line leaned by the money staked on each side so far.
+    # Live odds: the ML opening line leaned by the money staked on each side so far,
+    # less the house margin.
     yes_odds: float
     no_odds: float
     opening_yes_odds: float

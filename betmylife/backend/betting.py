@@ -15,6 +15,9 @@ LOCK_BEFORE_DEADLINE = timedelta(hours=1)
 # Virtual points the ML opening line is worth. Keep this well above MAX_STAKE so a single
 # bet nudges the odds instead of swinging them.
 POOL_LIQUIDITY = 1000
+# House edge taken off every price, so the points economy does not inflate from payouts.
+# 0.05 pays 95% of fair odds: even money (2.00) is offered at 1.90.
+HOUSE_MARGIN = 0.05
 MIN_IMPLIED_PROBABILITY = 0.02
 MIN_ODDS = 1.01
 
@@ -39,13 +42,14 @@ def live_odds(
 ) -> tuple[float, float]:
     """Scale the ML opening odds by how far the money has moved the implied probability.
 
-    With empty pools this returns the opening odds unchanged, so the ML model's own caps
-    and rounding still apply until someone bets.
+    With empty pools this is the opening odds less the house margin, so the ML model's
+    own caps still shape the line until someone bets.
     """
     probability = min(max(probability, MIN_IMPLIED_PROBABILITY), 1 - MIN_IMPLIED_PROBABILITY)
     p_yes = live_yes_probability(probability, yes_pool, no_pool)
-    yes_odds = opening_yes * probability / p_yes
-    no_odds = opening_no * (1 - probability) / (1 - p_yes)
+    keep = 1 - HOUSE_MARGIN
+    yes_odds = opening_yes * probability / p_yes * keep
+    no_odds = opening_no * (1 - probability) / (1 - p_yes) * keep
     return max(round(yes_odds, 2), MIN_ODDS), max(round(no_odds, 2), MIN_ODDS)
 
 

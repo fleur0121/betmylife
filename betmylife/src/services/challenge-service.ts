@@ -27,7 +27,7 @@ export type SavedChallenge = {
   deadline_at: string;
   deadline_label: string;
   probability: number;
-  /** Live odds: the ML opening line leaned by the stakes placed on each side. */
+  /** Live odds: the ML opening line leaned by the stakes placed on each side, less the house margin. */
   yes_odds: number;
   no_odds: number;
   opening_yes_odds: number;
