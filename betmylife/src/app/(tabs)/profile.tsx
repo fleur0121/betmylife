@@ -10,7 +10,7 @@ import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { Button, Card, Screen, SectionHeader, s } from "@/components/ui-kit";
 import { FeedTabs } from "@/components/feed-tabs";
 import { ChallengeCard } from "@/components/challenge-card";
-import { currentUser as user, rewards, type CosmeticSlot } from "@/mock/data";
+import { currentUser as user } from "@/mock/data";
 import { myFriendId } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { palette as c } from "@/constants/design";
@@ -30,19 +30,10 @@ const profileFrames: Record<string, BrandAssetName> = {
   "Fire Frame": "frameFire",
 };
 
-const badges: { asset: BrandAssetName; label: string }[] = [
-  { asset: "badgeFirstChallenge", label: "FIRST CHALLENGE" },
-  { asset: "badgeSevenDayStreak", label: "7 DAY STREAK" },
-  { asset: "badgeKnowledgeBuilder", label: "KNOWLEDGE BUILDER" },
-  { asset: "badgeFitnessHero", label: "FITNESS HERO" },
-];
-
 export default function Profile() {
-  const { state, dispatch } = useAppState();
+  const { state } = useAppState();
   const [tab, setTab] = useState("Overview");
   const [nickname, setNickname] = useState("");
-  const slots: CosmeticSlot[] = ["Frame", "Title", "Badge", "Background"];
-  const owned = rewards.filter((item) => state.owned.includes(item.id));
   const posts = state.challenges.filter((challenge) => challenge.user === user.name);
   const activeFrame = profileFrames[state.equipped.Frame] ?? "framePurpleAura";
 
@@ -82,9 +73,9 @@ export default function Profile() {
           <Text translate={false} style={styles.name}>{nickname || "Loading…"}<Text style={styles.verified}> ✦</Text></Text>
           <Text translate={false} style={styles.handle}>@{myFriendId} · making little promises, keeping big dreams</Text>
           <View style={styles.titleLine}>
-            <BrandAsset name="badgeAiSlayer" style={styles.titleArt} />
-            <View style={styles.titleInfo}><Text style={styles.titleLabel}>EQUIPPED TITLE</Text><Text style={styles.titleValue}>{state.equipped.Title}</Text></View>
-            <View style={styles.badgeCount}><Text style={styles.badgeCountValue}>12</Text><Text style={styles.badgeCountLabel}>BADGES</Text></View>
+            <BrandAsset name="stickerSmallSteps" style={styles.titleArt} />
+            <View style={styles.titleInfo}><Text style={styles.titleLabel}>PROFILE CUSTOMIZATION</Text><Text style={styles.titleValue}>COMING SOON</Text></View>
+            <View style={styles.badgeCount}><Text style={styles.badgeCountValue}>—</Text><Text style={styles.badgeCountLabel}>COMING SOON</Text></View>
           </View>
         </View>
       </View>
@@ -129,46 +120,15 @@ export default function Profile() {
             ))}
           </View>
 
-          <View style={styles.sectionHeading}><SectionHeader title="Profile style" /><Pressable accessibilityRole="button" onPress={() => router.push("/shop")}><Text style={styles.sectionLink}>EDIT ↗</Text></Pressable></View>
-          <View style={styles.styleCard}>
-            {slots.map((slot, index) => (
-              <View key={slot} style={[styles.styleRow, index > 0 && styles.styleDivider]}>
-                {slot === "Frame" ? (
-                  <View style={styles.framePreview}><BrandAsset name={activeFrame} style={styles.framePreviewImage} /></View>
-                ) : (
-                  <BrandAsset name={slot === "Title" ? "stickerFocused" : slot === "Badge" ? "badgeAiSlayer" : "stickerSmallSteps"} style={styles.styleIcon} />
-                )}
-                <Text style={styles.styleSlot}>{slot}</Text>
-                <Text numberOfLines={1} style={styles.styleValue}>{state.equipped[slot]}</Text>
-              </View>
-            ))}
-          </View>
-          {owned.length > 0 && (
-            <View style={styles.ownedItems}>
-              {owned.map((item) => (
-                <View key={item.id} style={styles.ownedRow}>
-                  <BrandAsset name={item.asset} style={styles.ownedArt} />
-                  <Text style={[s.body, s.flex]}>{item.name}</Text>
-                  <Button secondary label={state.equipped[item.slot] === item.name ? "Equipped" : "Equip"} disabled={state.equipped[item.slot] === item.name} onPress={() => dispatch({ type: "equip", id: item.id })} />
-                </View>
-              ))}
-            </View>
-          )}
-
-          <View style={styles.sectionHeading}><SectionHeader title="My badges" /><Pressable accessibilityRole="button" onPress={() => router.push("/shop")}><Text style={styles.sectionLink}>SEE ALL →</Text></Pressable></View>
-          <View style={styles.badgeRow}>
-            {badges.map((badge) => (
-              <View key={badge.label} style={styles.badgeItem}>
-                <BrandAsset name={badge.asset} style={styles.badgeArt} label={badge.label} />
-              </View>
-            ))}
-          </View>
-
-          <Pressable accessibilityRole="button" onPress={() => router.push("/shop")} style={({ pressed }) => [styles.collectionLink, pressed && s.pressed]}>
+          <SectionHeader title="Profile style" />
+          <View style={styles.comingSoonCard}>
             <BrandAsset name="iconShop" style={styles.collectionIcon} />
-            <View style={s.flex}><Text style={styles.collectionTitle}>Make this profile yours</Text><Text style={styles.collectionCopy}>Frames, badges & little bits of magic</Text></View>
-            <Text style={styles.journeyLink}>SHOP →</Text>
-          </Pressable>
+            <View style={s.flex}>
+              <Text style={styles.collectionTitle}>Profile customization</Text>
+              <Text style={styles.collectionCopy}>Frames, titles, badges and more are coming soon.</Text>
+            </View>
+            <Text style={styles.comingSoonLabel}>COMING SOON</Text>
+          </View>
 
           <View style={styles.sectionHeading}><SectionHeader title="Recent challenges" /><Text style={styles.sectionNote}>LATEST</Text></View>
           {posts.slice(0, 1).map((challenge) => <ChallengeCard key={challenge.id} challenge={challenge} />)}
@@ -256,6 +216,8 @@ const styles = StyleSheet.create({
   collectionIcon: { width: 42, height: 42 },
   collectionTitle: { color: c.text, fontSize: 12, fontWeight: "900" },
   collectionCopy: { marginTop: 2, color: c.muted, fontSize: 9 },
+  comingSoonCard: { flexDirection: "row", alignItems: "center", gap: 9, padding: 12, borderRadius: 18, backgroundColor: c.cream, opacity: 0.85 },
+  comingSoonLabel: { color: c.primary, fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   posts: { borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: c.border },
   emptyArt: { alignSelf: "center", width: 112, height: 82 },
 });

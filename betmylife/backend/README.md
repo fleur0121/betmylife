@@ -1,5 +1,9 @@
 # Backend
 
+For normal local development, use `docker compose up --build` from the
+repository root. It starts a local database, initializes the schema, and starts
+this API automatically. The manual setup below is mainly for TiDB Cloud.
+
 ## TiDB setup
 
 ```sh
