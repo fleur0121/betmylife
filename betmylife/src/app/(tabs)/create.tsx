@@ -149,7 +149,7 @@ export default function Create() {
       type: "create",
       challenge: {
         id: savedChallenge.id,
-        user: "Fuka",
+        user: savedChallenge.user_name,
         avatar: "🌷",
         color: c.lavender,
         title: title.trim(),

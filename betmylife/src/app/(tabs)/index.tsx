@@ -14,7 +14,7 @@ import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
-import { getChallenges } from "@/services/challenge-service";
+import { getPublicChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -91,7 +91,7 @@ export default function Home() {
   useEffect(() => {
     if (!state.authUserId) return;
     let cancelled = false;
-    getChallenges(state.authUserId)
+    getPublicChallenges(state.authUserId)
       .then((items) => {
         if (cancelled) return;
         dispatch({
@@ -99,7 +99,7 @@ export default function Home() {
           challenges: items.map((item) => ({
             id: item.id,
             ownerId: item.user_id,
-            user: "Fuka",
+            user: item.user_name,
             avatar: "🌷",
             color: c.lavender,
             title: item.title,
