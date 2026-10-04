@@ -32,6 +32,7 @@ import {
     type PropsWithChildren,
 } from "react";
 type State = {
+  authUserId: string | null;
   friendIds: string[];
   challenges: Challenge[];
   predictions: Record<string, PredictionChoice>;
@@ -41,6 +42,7 @@ type State = {
   equipped: Record<CosmeticSlot, string>;
 };
 type Action =
+  | { type: "login"; userId: string }
   | { type: "add-friend"; id: string }
   | { type: "place-prediction"; prediction: Prediction }
   | { type: "cancel-prediction"; challengeId: string; cancelledAt?: string }
@@ -50,6 +52,7 @@ type Action =
   | { type: "buy"; id: string }
   | { type: "equip"; id: string };
 export const initialState: State = {
+  authUserId: null,
   friendIds: initialFriendIds,
   challenges,
   predictions: {},
@@ -60,6 +63,8 @@ export const initialState: State = {
 };
 export function appReducer(state: State, action: Action): State {
   switch (action.type) {
+    case "login":
+      return { ...state, authUserId: action.userId };
     case "add-friend": {
       if (
         action.id === myFriendId ||
