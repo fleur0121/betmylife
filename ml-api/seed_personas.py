@@ -32,8 +32,10 @@ data is never touched.
 import argparse
 import hashlib
 import json
+import re
 import secrets
 import uuid
+import zlib
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from pathlib import Path
@@ -153,7 +155,104 @@ TEMPLATES = {
     },
 }
 
+# What every demo challenge means; each persona phrases it differently below.
 DEMO_TITLE = "Wake up by 7am on Saturday"
+
+# How each persona actually types. {t} is a casual clock time ("7", "6:30am"),
+# {d} a day word ("tmrw", "tonight", "on thu"), {m} gym minutes, {h} study hours
+# ({hours} and {hrs} spell out the unit: "1 hour", "2hrs").
+# The parsed meaning of every line matches its TEMPLATES entry.
+VOICES = {
+    "maya": {
+        "wake_up": [
+            "up by {t} {d} 🌅 let's see if I can keep it going",
+            "{t} wake up {d}... probably 🙈",
+            "trying for {t} again {d} ☀️",
+            "alarm's set for {t} {d}, no snoozing this time 🤞",
+            "early bird mode: up at {t} {d} 🐦",
+            "wake up before {t} {d} and actually make coffee ☕",
+            "{t} {d}? I think I can 😌",
+        ],
+        "gym": [
+            "gym {d} for {m} min, even if it's a light one 🏋️‍♀️",
+            "{m} mins at the gym {d}... wish me luck 😅",
+            "quick {m} min workout at the gym {d} 💪",
+            "going to the gym {d} ({m}min) hopefully 🙏",
+            "{m} min gym session {d}, small steps 🌱",
+        ],
+        "study": [
+            "study {h}h before {t} {d} 📖",
+            "{hours} of notes review {d}, done by {t} ✏️",
+            "finish {h}h of studying by {t} {d}, I think I can 🤔",
+            "{h}h of reading for class before {t} 📚",
+        ],
+    },
+    "leo": {
+        "wake_up": [
+            "up at {t} {d} EZ 😤",
+            "{t} wake up {d}, 100% guaranteed 🔥",
+            "no snooze. {t} {d}. locked in 🔒",
+            "WAKING UP AT {t} {d} 🦾",
+            "{t} alarm {d} and im actually getting up this time lol",
+            "up before {t} {d}, light work 😎",
+        ],
+        "gym": [
+            "gym {d} {m} min no excuses 💪🔥",
+            "HITTING THE GYM {d}!! {m} mins minimum 🏋️",
+            "leg day {d} 🦵 {m} min, ez",
+            "{m} min lift {d}, easy money 💰",
+            "gym grind {d} 😤 {m}mins",
+            "chest day {d} {m} min lets gooo 🔥🔥",
+        ],
+        "study": [
+            "study {h}h {d}, i got this 📚😎",
+            "cram {hours} before {t} 🧠⚡",
+            "{hrs} of studying {d} lets gooo",
+            "{h}h study grind before {t}, easy 💯",
+        ],
+    },
+    "sora": {
+        "wake_up": [
+            "up by {t} {d} ⏰ library opens early",
+            "{t} wake up {d}, first train to campus 🚃",
+            "wake at {t} {d} pls 🙏",
+            "rise and grind {t} {d} ☀️📚",
+            "{t} alarm {d}, morning study block 📝",
+        ],
+        "weekend_wake_up": [
+            "{t} on a {wd}?? trying 😭",
+            "weekend wake up {t}, don't let me down 🥲",
+            "{wd} {t} wake up... weekend me pls cooperate 😵‍💫",
+        ],
+        "gym": [
+            "gym {d} {m} min to clear my head 🏋️",
+            "{m} min gym break between study blocks 💪",
+            "{m}min workout {d}, then back to the books 📚",
+        ],
+        "study": [
+            "{h}h study block, done by {t} {d} 📚",
+            "finish {hours} of exam prep before {t} ✍️",
+            "deep work {h}h {d}, phone in the other room 📵",
+            "lock in: {h}h of orgo before {t} 🧪",
+            "{h}hr study sesh {d} ☕📚",
+        ],
+        "weekend_study": [
+            "{wd} study {h}h before {t}... we'll see 😅",
+            "weekend exam prep {h}h by {t} 🫠",
+        ],
+    },
+}
+
+# Each persona writes the same demo challenge in their own words; all three
+# parse to sleep/wake_up at 07:00 on Saturday.
+DEMO_TEXTS = {
+    "maya": "up by 7 on saturday 🌅 hopefully",
+    "leo": "SATURDAY 7AM WAKE UP. EASY 😤🔥",
+    "sora": "7am wake up on saturday... pls 🙏😭",
+}
+
+GYM_MINUTES = (30, 45, 60)
+STUDY_HOURS = (1, 1.5, 2, 3)
 
 
 def parse_args():
@@ -186,13 +285,72 @@ def clock_label(hour, minute):
     return f"{display_hour}{suffix}" if minute == 0 else f"{display_hour}:{minute:02d}{suffix}"
 
 
-def challenge_text(kind, local_time, weekday_name):
-    label = clock_label(local_time.hour, local_time.minute)
-    if kind == "wake_up":
-        return f"Wake up by {label} on {weekday_name}"
-    if kind == "gym":
-        return f"Hit the gym for 45 minutes at {label} on {weekday_name}"
-    return f"Study for 2 hours before {label} on {weekday_name}"
+class Voice:
+    """Picks a persona's phrasing without repeating a line until all are used."""
+
+    def __init__(self, persona):
+        self.lines = VOICES[persona.key]
+        self.rng = np.random.default_rng(zlib.crc32(persona.key.encode()))
+        self.decks = {}
+
+    def pick(self, items):
+        return items[int(self.rng.integers(len(items)))]
+
+    def line(self, pool):
+        deck = self.decks.get(pool)
+        if not deck:
+            deck = list(self.rng.permutation(len(self.lines[pool])))
+            self.decks[pool] = deck
+        return self.lines[pool][deck.pop()]
+
+    def clock(self, local_time):
+        hour, minute = local_time.hour, local_time.minute
+        display_hour = hour % 12 or 12
+        suffix = "am" if hour < 12 else "pm"
+        if minute:
+            return self.pick([
+                f"{display_hour}:{minute:02d}",
+                f"{display_hour}.{minute:02d}",
+                f"{display_hour}:{minute:02d}{suffix}",
+            ])
+        return self.pick([
+            str(display_hour), f"{display_hour}{suffix}", f"{display_hour} {suffix}",
+            f"{hour:02d}:00",
+        ])
+
+    def day(self, kind, local_time):
+        weekday = local_time.strftime("%a").lower()
+        if kind == "wake_up":
+            options = ["tmrw", "tomorrow", f"on {weekday}", ""]
+        elif kind == "study":
+            options = ["tonight", "today", ""]
+        else:
+            options = ["today", "tonight" if local_time.hour >= 17 else "this morning", ""]
+        return self.pick(options)
+
+    def text(self, kind, local_time):
+        """Return (text, goal) for one challenge."""
+        pool = kind
+        if local_time.weekday() >= 5 and f"weekend_{kind}" in self.lines and self.rng.random() < 0.6:
+            pool = f"weekend_{kind}"
+        goal = None
+        if kind == "gym":
+            goal = int(self.pick(GYM_MINUTES))
+        elif kind == "study":
+            goal = float(self.pick(STUDY_HOURS))
+        text = self.line(pool).format(
+            t=self.clock(local_time),
+            d=self.day(kind, local_time),
+            wd=local_time.strftime("%A").lower(),
+            m=goal,
+            h=f"{goal:g}" if goal is not None else "",
+            hours=f"{goal:g} hour{'' if goal == 1 else 's'}" if goal is not None else "",
+            hrs=f"{goal:g}hr{'' if goal == 1 else 's'}" if goal is not None else "",
+        )
+        text = re.sub(r"\s+([,.!?])", r"\1", re.sub(r"\s{2,}", " ", text)).strip()
+        if self.rng.random() < 0.35 and text[:1].isalpha() and not text.isupper():
+            text = text[0].upper() + text[1:]
+        return text, goal
 
 
 def challenge_time(kind, rng):
@@ -203,7 +361,7 @@ def challenge_time(kind, rng):
     return time(22, 0)
 
 
-def analysis_json(kind, text, local_time, submitted_at, zone_name, confidence):
+def analysis_json(kind, text, goal, local_time, submitted_at, zone_name, confidence):
     template = TEMPLATES[kind]
     measurement = template["measurement"]
     resolved_at = local_time.isoformat()
@@ -224,7 +382,7 @@ def analysis_json(kind, text, local_time, submitted_at, zone_name, confidence):
                             "original": text,
                             "metric": measurement["metric"],
                             "operator": "gte",
-                            "value": measurement["value"],
+                            "value": goal,
                             "unit": measurement["unit"],
                         }]
                         if measurement
@@ -293,12 +451,9 @@ def price(general, history, category, local_time):
     return round(probability * 100, 2), round(1 / probability, 2), round(1 / (1 - probability), 2)
 
 
-def challenge_row(persona, kind, local_time, submitted_at, zone_name, confidence, odds):
+def challenge_row(persona, kind, text, goal, local_time, submitted_at, zone_name, confidence, odds):
     template = TEMPLATES[kind]
     user_id = persona_id(persona)
-    text = challenge_text(kind, local_time, local_time.strftime("%A"))
-    if local_time.hour == 7 and kind == "wake_up" and local_time.weekday() == 5:
-        text = DEMO_TITLE
     challenge_id = str(uuid.uuid5(
         uuid.NAMESPACE_URL,
         f"betmylife:persona:{persona.key}:{local_time.isoformat()}:{kind}",
@@ -331,7 +486,7 @@ def challenge_row(persona, kind, local_time, submitted_at, zone_name, confidence
         "no_odds": odds[2],
         "user_input_json": json.dumps(user_input, ensure_ascii=False),
         "analysis_json": json.dumps(
-            analysis_json(kind, text, local_time, submitted_at, zone_name, confidence),
+            analysis_json(kind, text, goal, local_time, submitted_at, zone_name, confidence),
             ensure_ascii=False,
         ),
         "created_at": submitted_at.astimezone(timezone.utc).replace(tzinfo=None),
@@ -348,6 +503,7 @@ def generate(persona, general, as_of, days, zone, rng):
     # success probability and succeeds whenever the total crosses 1, so a
     # dozen weekend wake-ups still show the persona's real weekend rate.
     accumulated = {}
+    voice = Voice(persona)
     history = pd.DataFrame(columns=["category", "success", "day_of_week"])
 
     for offset in range(days, 0, -1):
@@ -371,7 +527,10 @@ def generate(persona, general, as_of, days, zone, rng):
         accumulated[bucket] -= success
 
         odds = price(general, history, template["category"], local_time)
-        row = challenge_row(persona, kind, local_time, submitted_at, zone_name, confidence, odds)
+        text, goal = voice.text(kind, local_time)
+        row = challenge_row(
+            persona, kind, text, goal, local_time, submitted_at, zone_name, confidence, odds
+        )
         resolved_at = (local_time + timedelta(minutes=30)).astimezone(timezone.utc).replace(tzinfo=None)
         row["result"] = "success" if success else "failed"
         row["resolved_at"] = resolved_at
@@ -386,7 +545,7 @@ def generate(persona, general, as_of, days, zone, rng):
             "app_category": template["app_category"],
             "category": template["category"],
             "subcategory": template["subcategory"],
-            "goal": measurement.get("value"),
+            "goal": goal,
             "goal_unit": measurement.get("unit"),
             "target_hour": local_time.hour,
             "hours_until_deadline": round(
@@ -410,7 +569,8 @@ def generate(persona, general, as_of, days, zone, rng):
     demo_time = datetime.combine(as_of + timedelta(days=days_to_saturday), time(7, 0), zone)
     demo_odds = price(general, history, "sleep", demo_time)
     demo = challenge_row(
-        persona, "wake_up", demo_time, datetime.combine(as_of, time(12, 0), zone),
+        persona, "wake_up", DEMO_TEXTS[persona.key], None,
+        demo_time, datetime.combine(as_of, time(12, 0), zone),
         zone_name, persona.demo_confidence, demo_odds,
     )
     demo["result"] = None
@@ -524,10 +684,10 @@ def main():
         persona_rows.append((persona, challenges, observations, demo))
         summarize(persona, observations, demo)
 
-    print(f"\nDemo: \"{DEMO_TITLE}\" ({persona_rows[0][3]['deadline_label']}, {args.timezone})")
+    print(f"\nDemo: {DEMO_TITLE} ({persona_rows[0][3]['deadline_label']}, {args.timezone})")
     for persona, *_, demo in persona_rows:
         print(f"  {persona.name:<5} {demo['probability']:>3.0f}%  "
-              f"YES x{demo['yes_odds']:.2f}  NO x{demo['no_odds']:.2f}")
+              f"YES x{demo['yes_odds']:.2f}  NO x{demo['no_odds']:.2f}  \"{demo['title']}\"")
 
     if args.dry_run:
         print("\n--dry-run: nothing written")

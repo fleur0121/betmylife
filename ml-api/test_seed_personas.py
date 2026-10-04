@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import date
 from zoneinfo import ZoneInfo
@@ -21,7 +22,9 @@ class SeedPersonasTests(unittest.TestCase):
     def test_demo_challenge_ranks_personas_by_their_history(self):
         demos = {key: rows[2] for key, rows in self.generate().items()}
 
-        self.assertTrue(all(demo["title"] == seed_personas.DEMO_TITLE for demo in demos.values()))
+        self.assertEqual(
+            {key: demo["title"] for key, demo in demos.items()}, seed_personas.DEMO_TEXTS
+        )
         self.assertTrue(all(demo["result"] is None for demo in demos.values()))
         self.assertGreater(demos["maya"]["probability"], 75)
         self.assertLess(demos["sora"]["probability"], demos["leo"]["probability"])
@@ -40,6 +43,18 @@ class SeedPersonasTests(unittest.TestCase):
                 self.assertEqual(
                     challenge["result"] == "success", bool(observation["success"])
                 )
+
+    def test_titles_vary_and_goals_match_analysis(self):
+        for challenges, observations, _ in self.generate().values():
+            titles = [row["title"] for row in challenges]
+            self.assertGreater(len(set(titles)), len(titles) * 0.8)
+            for challenge, observation in zip(challenges, observations):
+                analysis = json.loads(challenge["analysis_json"])
+                action = analysis["data"]["actions"][0]
+                self.assertEqual(analysis["data"]["source_text"], challenge["title"])
+                self.assertEqual(action["category"], observation["category"])
+                values = [item["value"] for item in action["measurements"]]
+                self.assertEqual(values, [observation["goal"]] if observation["goal"] else [])
 
     def test_generation_is_deterministic(self):
         first, second = self.generate(), self.generate()
