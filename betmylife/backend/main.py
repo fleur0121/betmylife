@@ -173,6 +173,14 @@ class FollowingResponse(BaseModel):
     followed_ids: list[str]
 
 
+class UserSummary(BaseModel):
+    id: str
+    username: str
+    nickname: str | None = None
+    display_name: str
+    avatar: str
+
+
 class FriendRequestResponse(BaseModel):
     id: str
     requester_id: str
@@ -821,6 +829,44 @@ def get_following(user_id: str) -> FollowingResponse:
             )
             followed_ids = [row["followed_id"] for row in cursor.fetchall()]
     return FollowingResponse(followed_ids=followed_ids)
+
+
+@app.get("/users/search", response_model=list[UserSummary])
+def search_users(q: str = "", viewer_id: str | None = None, limit: int = 20) -> list[UserSummary]:
+    query = q.strip()
+    if not query:
+        return []
+    safe_limit = max(1, min(limit, 50))
+    pattern = f"%{query}%"
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """SELECT id, username, nickname, display_name, avatar
+                FROM users
+                WHERE (id LIKE %s OR username LIKE %s OR nickname LIKE %s OR display_name LIKE %s)
+                  AND (%s IS NULL OR id <> %s)
+                ORDER BY CASE WHEN id = %s OR username = %s THEN 0 ELSE 1 END,
+                         COALESCE(NULLIF(nickname, ''), NULLIF(display_name, ''), username)
+                LIMIT %s""",
+                (pattern, pattern, pattern, pattern, viewer_id, viewer_id, query, query, safe_limit),
+            )
+            return [UserSummary(**row) for row in cursor.fetchall()]
+
+
+@app.get("/users/{user_id}/following/details", response_model=list[UserSummary])
+def get_following_details(user_id: str) -> list[UserSummary]:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """SELECT u.id, u.username, u.nickname, u.display_name, u.avatar
+                FROM user_follows f JOIN users u ON u.id = f.followed_id
+                WHERE f.follower_id = %s ORDER BY f.created_at DESC""",
+                (user_id,),
+            )
+            return [UserSummary(**row) for row in cursor.fetchall()]
 
 
 @app.put("/users/{user_id}/following/{followed_id}", status_code=204)

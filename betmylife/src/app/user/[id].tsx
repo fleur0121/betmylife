@@ -11,7 +11,6 @@ import {
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import type { Challenge } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { API_URL } from "@/constants/api";
 import { router, useLocalSearchParams } from "expo-router";
@@ -32,7 +31,6 @@ export default function UserProfile() {
   const [posts, setPosts] = useState<Challenge[]>([]);
   const isCurrentUser = Boolean(state.authUserId && state.authUserId === id);
   const profileName = profile?.nickname?.trim() || profile?.display_name || profile?.username || "Profile";
-  const fallbackFriend = friendDirectory.find((friend) => friend.id === id);
   const isFollowing = Boolean(state.authUserId && followingSnapshot?.userId === state.authUserId && followingSnapshot.ids.includes(id));
 
   useEffect(() => {
@@ -59,7 +57,7 @@ export default function UserProfile() {
         setProfile(profileResult);
         setPosts(challengeResult.map((item: any) => ({
           id: item.id, ownerId: item.user_id, ownerUsername: item.user_handle,
-          user: item.user_name, avatar: fallbackFriend?.avatar ?? "🌱", color: fallbackFriend?.color ?? c.lavender,
+          user: item.user_name, avatar: item.avatar ?? "🌱", color: c.lavender,
           title: item.title, category: item.category, difficulty: item.difficulty,
           confidence: item.confidence, deadline: item.deadline_label, deadlineAt: item.deadline_at,
           probability: item.probability, yesOdds: item.yes_odds.toFixed(2), noOdds: item.no_odds.toFixed(2),
@@ -71,7 +69,7 @@ export default function UserProfile() {
         if (!cancelled) setFollowError(error instanceof Error ? error.message : "Could not load follow status.");
       });
     return () => { cancelled = true; };
-  }, [id, state.authUserId, fallbackFriend?.avatar, fallbackFriend?.color]);
+  }, [id, state.authUserId]);
 
   async function toggleFollow() {
     if (!state.authUserId || !id) {
@@ -132,7 +130,7 @@ export default function UserProfile() {
             <View style={styles.avatarBorder}>
               <Avatar
                 emoji={profile.avatar}
-                color={fallbackFriend?.color ?? c.lavender}
+                color={c.lavender}
                 size={80}
                 framed
               />

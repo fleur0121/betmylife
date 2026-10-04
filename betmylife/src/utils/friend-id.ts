@@ -8,7 +8,8 @@ export function normalizeFriendId(value: string) {
   return value.trim().replace(/^@/, '').toLowerCase();
 }
 export function isFriendId(value: string) {
-  return /^[a-z][a-z0-9-]{2,31}$/.test(value);
+  return /^[a-z][a-z0-9-]{2,63}$/.test(value) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 export function encodeFriendQR(id: string) {
   if (!isFriendId(id)) throw new Error('Invalid friend ID');

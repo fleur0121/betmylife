@@ -13,7 +13,6 @@ import { palette as c } from "@/constants/design";
 import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
 import { getPublicChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
@@ -162,9 +161,6 @@ export default function Home() {
       };
     })
     .filter((pick): pick is { challenge: Challenge; choice: "yes" | "no"; odds: string } => pick !== null);
-  const friendNames = friendDirectory
-    .filter((friend) => state.friendIds.includes(friend.id))
-    .map((friend) => friend.name);
   const feed = state.challenges.filter(
     (item) =>
       item.id !== featured?.id &&
@@ -172,7 +168,7 @@ export default function Home() {
       (filter === "Public"
         ? item.visibility === "public"
         : filter === "Friends"
-          ? friendNames.includes(item.user)
+          ? state.friendIds.includes(item.ownerId ?? "")
           : !!state.predictions[item.id]),
   );
   const feedEyebrow = filter === "Public" ? "PUBLIC" : filter === "Friends" ? "YOUR FRIENDS" : "YOUR ACTIVITY";
