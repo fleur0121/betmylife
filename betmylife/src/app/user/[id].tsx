@@ -10,7 +10,7 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
-import { currentUser, users } from "@/mock/data";
+import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { API_URL } from "@/constants/api";
@@ -24,32 +24,54 @@ export default function UserProfile() {
   const [followingSnapshot, setFollowingSnapshot] = useState<{ userId: string; ids: string[] } | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [followError, setFollowError] = useState("");
-  const profile = friendDirectory.find((friend) => friend.id === id);
-  const stats = users.find((user) => user.name === profile?.name);
-  const isCurrentUser = profile?.name === currentUser.name;
+  const [requestSent, setRequestSent] = useState(false);
+  const [profile, setProfile] = useState<{
+    id: string; username: string; nickname?: string | null; display_name: string;
+    avatar: string; bio: string; points: number;
+  } | null>(null);
+  const [posts, setPosts] = useState<Challenge[]>([]);
+  const isCurrentUser = Boolean(state.authUserId && state.authUserId === id);
+  const profileName = profile?.nickname?.trim() || profile?.display_name || profile?.username || "Profile";
+  const fallbackFriend = friendDirectory.find((friend) => friend.id === id);
   const isFollowing = Boolean(state.authUserId && followingSnapshot?.userId === state.authUserId && followingSnapshot.ids.includes(id));
-  const posts = state.challenges.filter(
-    (challenge) => challenge.user === profile?.name,
-  );
 
   useEffect(() => {
     if (!state.authUserId || !id) {
       return;
     }
     let cancelled = false;
-    fetch(`${API_URL}/users/${state.authUserId}/following`)
-      .then(async (response) => {
+    Promise.all([
+      fetch(`${API_URL}/users/${id}/profile`).then(async (response) => {
+        if (!response.ok) throw new Error("Profile not found");
+        return response.json();
+      }),
+      fetch(`${API_URL}/users/${id}/challenges?viewer_id=${encodeURIComponent(state.authUserId)}`).then(async (response) => {
+        if (!response.ok) throw new Error("Could not load challenges");
+        return response.json();
+      }),
+      fetch(`${API_URL}/users/${state.authUserId}/following`).then(async (response) => {
         if (!response.ok) throw new Error(`Could not load followed users (${response.status})`);
         return response.json() as Promise<{ followed_ids: string[] }>;
-      })
-      .then((result) => {
-        if (!cancelled) setFollowingSnapshot({ userId: state.authUserId!, ids: result.followed_ids });
+      }),
+    ])
+      .then(([profileResult, challengeResult, followingResult]) => {
+        if (cancelled) return;
+        setProfile(profileResult);
+        setPosts(challengeResult.map((item: any) => ({
+          id: item.id, ownerId: item.user_id, ownerUsername: item.user_handle,
+          user: item.user_name, avatar: fallbackFriend?.avatar ?? "🌱", color: fallbackFriend?.color ?? c.lavender,
+          title: item.title, category: item.category, difficulty: item.difficulty,
+          confidence: item.confidence, deadline: item.deadline_label, deadlineAt: item.deadline_at,
+          probability: item.probability, yesOdds: item.yes_odds.toFixed(2), noOdds: item.no_odds.toFixed(2),
+          friends: 0, visibility: item.visibility, proofPlan: item.proof_plan ?? undefined,
+        })));
+        setFollowingSnapshot({ userId: state.authUserId!, ids: followingResult.followed_ids });
       })
       .catch((error: unknown) => {
         if (!cancelled) setFollowError(error instanceof Error ? error.message : "Could not load follow status.");
       });
     return () => { cancelled = true; };
-  }, [id, state.authUserId]);
+  }, [id, state.authUserId, fallbackFriend?.avatar, fallbackFriend?.color]);
 
   async function toggleFollow() {
     if (!state.authUserId || !id) {
@@ -59,21 +81,27 @@ export default function UserProfile() {
     setFollowBusy(true);
     setFollowError("");
     try {
-      const response = await fetch(`${API_URL}/users/${state.authUserId}/following/${encodeURIComponent(id)}`, {
-        method: isFollowing ? "DELETE" : "PUT",
-      });
+      const response = await fetch(
+        isFollowing
+          ? `${API_URL}/users/${state.authUserId}/following/${encodeURIComponent(id)}`
+          : `${API_URL}/users/${state.authUserId}/friend-requests/${encodeURIComponent(id)}`,
+        {
+        method: isFollowing ? "DELETE" : "POST",
+        headers: isFollowing ? undefined : { "Content-Type": "application/json" },
+        },
+      );
       if (!response.ok) {
         const body = await response.json().catch(() => null) as { detail?: string } | null;
         throw new Error(body?.detail ?? "Could not update follow status.");
       }
-      const currentIds = followingSnapshot?.userId === state.authUserId
-        ? followingSnapshot.ids
-        : state.followingIds;
-      const nextIds = isFollowing
-        ? currentIds.filter((followedId) => followedId !== id)
-        : [...currentIds, id];
-      dispatch({ type: "set-following-ids", ids: nextIds });
-      setFollowingSnapshot({ userId: state.authUserId, ids: nextIds });
+      if (isFollowing) {
+        const currentIds = followingSnapshot?.userId === state.authUserId ? followingSnapshot.ids : state.followingIds;
+        const nextIds = currentIds.filter((followedId) => followedId !== id);
+        dispatch({ type: "set-following-ids", ids: nextIds });
+        setFollowingSnapshot({ userId: state.authUserId, ids: nextIds });
+      } else {
+        setRequestSent(true);
+      }
     } catch (error) {
       setFollowError(error instanceof Error ? error.message : "Could not update follow status.");
     } finally {
@@ -81,7 +109,7 @@ export default function UserProfile() {
     }
   }
 
-  if (!profile || !stats) {
+  if (!profile) {
     return (
       <Screen title="Profile" back>
         <Card>
@@ -94,7 +122,7 @@ export default function UserProfile() {
   }
 
   return (
-    <Screen title={profile.name} back>
+    <Screen title={profileName} back>
       <View style={styles.profile}>
         <View style={styles.cover}>
           <Text style={styles.stars}>✧ ✦ ✧</Text>
@@ -104,7 +132,7 @@ export default function UserProfile() {
             <View style={styles.avatarBorder}>
               <Avatar
                 emoji={profile.avatar}
-                color={profile.color}
+                color={fallbackFriend?.color ?? c.lavender}
                 size={80}
                 framed
               />
@@ -112,21 +140,21 @@ export default function UserProfile() {
             {!isCurrentUser && (
               <Button
                 secondary
-                label={followBusy ? "Saving…" : isFollowing ? "Following · Unfollow" : state.authUserId ? "Follow" : "Log in to follow"}
+                label={followBusy ? "Saving…" : isFollowing ? "Following · Unfollow" : requestSent ? "Request sent" : state.authUserId ? "Add friend" : "Log in to follow"}
                 disabled={followBusy}
                 onPress={toggleFollow}
               />
             )}
           </View>
-          <Text translate={false} style={styles.name}>
-            {profile.name}
+            <Text translate={false} style={styles.name}>
+            {profileName}
           </Text>
           <Text translate={false} style={s.muted}>
-            @{profile.id}
+            @{profile.username}
           </Text>
           <View style={styles.badges}>
-            <Pill tone="green">{stats.streak} day streak</Pill>
-            <Pill>{stats.accuracy}% prediction accuracy</Pill>
+            <Pill tone="green">Public profile</Pill>
+            <Pill>{posts.length} challenges</Pill>
           </View>
           <Text style={s.body}>Showing up, one challenge at a time.</Text>
           {!!followError && <Text accessibilityLiveRegion="polite" style={styles.followError}>{followError}</Text>}
@@ -137,12 +165,12 @@ export default function UserProfile() {
       </View>
       <Card>
         <View style={s.row}>
-          <StatCard value={`${isCurrentUser ? state.pointsBalance : stats.points} PT`} label="Points" />
-          <StatCard value={`${stats.accuracy}%`} label="Accuracy" />
-          <StatCard value={`${stats.streak} days`} label="Streak" />
+          <StatCard value={`${profile.points} PT`} label="Points" />
+          <StatCard value={`${posts.length}`} label="Challenges" />
+          <StatCard value={isCurrentUser ? "You" : isFollowing ? "Friend" : "Public"} label="Visibility" />
         </View>
       </Card>
-      <Text style={s.sectionTitle}>{profile.name}&apos;s challenges</Text>
+      <Text style={s.sectionTitle}>{profileName}&apos;s challenges</Text>
       <View style={styles.posts}>
         {posts.length ? (
           posts.map((challenge) => (

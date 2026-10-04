@@ -174,6 +174,7 @@ export default function Create() {
       challenge: {
         id: savedChallenge.id,
         ownerId: state.authUserId,
+        ownerUsername: savedChallenge.user_handle,
         user: savedChallenge.user_name,
         avatar: "🌷",
         color: c.lavender,

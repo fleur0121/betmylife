@@ -18,6 +18,7 @@ import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { state, dispatch } = useAppState();
   const { t } = useLanguage();
+  const ownChallenge = challenge.ownerId === state.authUserId;
   const selected = state.predictions[challenge.id];
   const author = friendDirectory.find(
     (friend) => friend.name === challenge.user,
@@ -58,7 +59,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
               numberOfLines={1}
               style={[s.caption, { flexShrink: 1 }]}
             >
-              @{challenge.ownerId ?? author?.id ?? challenge.user.toLowerCase()}
+              @{challenge.ownerUsername ?? author?.id ?? challenge.user.toLowerCase()}
             </Text>
           </View>
           <Text style={s.caption}>◷ {challenge.deadline}</Text>
@@ -114,15 +115,17 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         <ProgressBar value={challenge.probability} />
         <View style={s.between}>
           <Text style={s.caption}>
-            Their confidence {challenge.confidence}%
+            {ownChallenge ? "Your confidence" : "Their confidence"} {challenge.confidence}%
           </Text>
           <Text style={s.caption}>Mock estimate</Text>
         </View>
       </View>
-      <View style={styles.voteLabel}>
-        <Text style={styles.question}>Will they make it?</Text>
-        <Text style={s.caption}>Stake points</Text>
-      </View>
+      {!ownChallenge && (
+        <View style={styles.voteLabel}>
+          <Text style={styles.question}>Will they make it?</Text>
+          <Text style={s.caption}>Stake points</Text>
+        </View>
+      )}
       <PredictionPanel challenge={challenge} />
       <View style={styles.footer}>
         <Text style={s.caption}>
@@ -134,7 +137,9 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         >
           {selected
             ? `You’re locked on ${selected.toUpperCase()}`
-            : "Choose a side to stake points"}
+            : ownChallenge
+              ? "Your challenge is waiting for predictions"
+              : "Choose a side to stake points"}
         </Text>
         {challenge.ownerId === state.authUserId && (
           <Pressable
