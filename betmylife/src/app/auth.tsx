@@ -50,7 +50,7 @@ export default function AuthScreen() {
       </View>
       <Card>
         <Text style={styles.label}>USERNAME</Text>
-        <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="your_name" placeholderTextColor={c.muted} style={styles.input} />
+        <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" placeholder="user name" placeholderTextColor={c.muted} style={styles.input} />
         <Text style={styles.label}>PASSWORD</Text>
         <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="at least 4 characters" placeholderTextColor={c.muted} style={styles.input} />
         {error ? <Text style={styles.error}>{error}</Text> : null}

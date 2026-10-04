@@ -53,6 +53,7 @@ type Action =
       settledAt?: string;
     }
   | { type: "create"; challenge: Challenge }
+  | { type: "replace-challenges"; challenges: Challenge[] }
   | { type: "delete"; id: string }
   | { type: "buy"; id: string }
   | { type: "equip"; id: string };
@@ -205,6 +206,8 @@ export function appReducer(state: State, action: Action): State {
     }
     case "create":
       return { ...state, challenges: [action.challenge, ...state.challenges] };
+    case "replace-challenges":
+      return { ...state, challenges: action.challenges };
     case "delete": {
       const challenges = state.challenges.filter(
         (challenge) => challenge.id !== action.id || challenge.user !== "Fuka",

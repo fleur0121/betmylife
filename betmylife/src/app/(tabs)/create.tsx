@@ -1,11 +1,10 @@
 /**
  * チャレンジ作成画面。タイトル、カテゴリ、難易度、自信度、期限を入力する。
  * フォームの値は画面内の状態で管理し、タイトルを検証してから共有状態へ新しいチャレンジを追加する。
- * 作成後は完了表示からHomeへ移動できる。期限はデモ用の選択肢、AI確率と倍率は固定のモック値。
+ * 作成後は完了表示からHomeへ移動できる。期限は選択式、AI確率と倍率は現在の仮値。
  */
 import { BrandAsset } from "@/components/brand-asset";
 import { Text } from "@/components/localized-text";
-import { ProofPlanCard } from "@/components/proof/proof-plan-card";
 import {
     Button,
     Card,
@@ -16,18 +15,15 @@ import {
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
-import type { Category, VerificationPlan, Visibility } from "@/mock/data";
-import { generateProofPlan } from "@/services/proof-service";
+import type { Category, Visibility } from "@/mock/data";
+import { saveChallenge } from "@/services/challenge-service";
 import {
     analyzeChallenge,
     type ChallengeNlpRequest,
     type ChallengeNlpResult,
 } from "@/services/challenge-nlp";
 import { useAppState } from "@/state/app-state";
-import {
-    demoCapabilities,
-    getFallbackProofPlan,
-} from "@/utils/fallback-proof-plan";
+import { getFallbackProofPlan } from "@/utils/fallback-proof-plan";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
@@ -41,35 +37,40 @@ import {
 } from "react-native";
 export default function Create() {
   const { locale, t } = useLanguage();
-  const { dispatch } = useAppState();
+  const { state, dispatch } = useAppState();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Study");
   const [difficulty, setDifficulty] = useState(3);
   const [confidence, setConfidence] = useState(73);
-  const [confidenceWidth, setConfidenceWidth] = useState(1);
   const [deadline, setDeadline] = useState("Tomorrow");
   const [customDate, setCustomDate] = useState("");
   const [customTime, setCustomTime] = useState("19:00");
   const [error, setError] = useState("");
   const [created, setCreated] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>("public");
-  const [proofPlan, setProofPlan] = useState<VerificationPlan | null>(null);
-  const [proofLoading, setProofLoading] = useState(false);
-  const [proofError, setProofError] = useState("");
   const [analysis, setAnalysis] = useState<ChallengeNlpResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const analysisContext = useRef<{ key: string; request: ChallengeNlpRequest } | null>(null);
   const currentTitle = useRef(title);
   const analysisInFlight = useRef(false);
+  const confidenceTrackWidth = useRef(1);
 
-  async function analyzeInput() {
-    if (analysisInFlight.current || !title.trim()) return;
+  function updateConfidence(locationX: number) {
+    if (!Number.isFinite(locationX)) return;
+    const next = Math.round(
+      (locationX / Math.max(confidenceTrackWidth.current, 1)) * 100,
+    );
+    setConfidence(Math.max(0, Math.min(100, next)));
+  }
+
+  async function analyzeInput(): Promise<ChallengeNlpResult | null> {
+    if (analysisInFlight.current || !title.trim()) return null;
     const text = title;
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (!timezone) {
       setAnalysisError("Your timezone could not be determined.");
-      return;
+      return null;
     }
     const now = new Date();
     const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
@@ -86,8 +87,10 @@ export default function Create() {
       const result = await analyzeChallenge(analysisContext.current.request);
       console.log("[challenge-nlp] analyzed", JSON.stringify(result, null, 2));
       if (currentTitle.current === text) setAnalysis(result);
+      return result;
     } catch (error) {
       if (currentTitle.current === text) setAnalysisError(error instanceof Error ? error.message : "Analysis failed. Please try again.");
+      return null;
     } finally {
       analysisInFlight.current = false;
       setAnalyzing(false);
@@ -107,11 +110,10 @@ export default function Create() {
     return `${customDate} · ${customTime}`;
   }
 
-  async function chooseProof() {
+  async function createChallenge() {
+    if (analysisInFlight.current) return;
     if (title.trim().length < 5) {
-      setError(
-        "Give your challenge a little more detail (at least 5 characters).",
-      );
+      setError("Give your challenge a little more detail (at least 5 characters).");
       return;
     }
     const resolvedDeadline = getResolvedDeadline();
@@ -119,39 +121,42 @@ export default function Create() {
       setError("Enter a valid date and time for your deadline.");
       return;
     }
-    setProofLoading(true);
-    setProofError("");
+    const selectedProofPlan = getFallbackProofPlan({
+      title: title.trim(),
+      category,
+      difficulty,
+      confidence,
+      deadline: resolvedDeadline,
+    });
+    // Posting explicitly triggers analysis; failures are shown but do not discard the post.
+    const postedAnalysis = await analyzeInput();
+    const deadlineAt = parseChallengeDeadline(resolvedDeadline)?.toISOString();
+    if (!state.authUserId || !deadlineAt) {
+      setError("You must be logged in to post a challenge.");
+      return;
+    }
+    let savedChallenge;
     try {
-      const input = {
+      savedChallenge = await saveChallenge({
+        userId: state.authUserId,
         title: title.trim(),
         category,
         difficulty,
         confidence,
-        deadline: resolvedDeadline,
-        capabilities: demoCapabilities,
-      };
-      try {
-        setProofPlan(await generateProofPlan(input));
-      } catch {
-        setProofPlan(getFallbackProofPlan(input));
-      }
-    } catch {
-      setProofError("We could not choose a proof yet. Please try again.");
-    } finally {
-      setProofLoading(false);
+        visibility,
+        deadlineAt,
+        deadlineLabel: resolvedDeadline,
+        analysis: postedAnalysis ?? analysis,
+        proofPlan: selectedProofPlan,
+      });
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save your challenge.");
+      return;
     }
-  }
-
-  async function createChallenge() {
-    if (!proofPlan || analysisInFlight.current) return;
-    const resolvedDeadline = getResolvedDeadline();
-    if (!resolvedDeadline) return;
-    // Posting explicitly triggers analysis; failures are shown but do not discard the post.
-    await analyzeInput();
     dispatch({
       type: "create",
       challenge: {
-        id: `local-${Date.now()}`,
+        id: savedChallenge.id,
         user: "Fuka",
         avatar: "🌷",
         color: c.lavender,
@@ -167,7 +172,7 @@ export default function Create() {
         friends: 0,
         visibility,
         titleJa: locale === "ja" ? title.trim() : undefined,
-        proofPlan,
+        proofPlan: selectedProofPlan,
       },
     });
     setCreated(true);
@@ -176,7 +181,6 @@ export default function Create() {
     setAnalysis(null);
     analysisContext.current = null;
     setError("");
-    setProofPlan(null);
   }
   return (
     <KeyboardAvoidingView
@@ -199,7 +203,7 @@ export default function Create() {
               You’re on the board!
             </Text>
             <Text style={s.muted}>
-              Your challenge is live in the mock feed. Let your friends believe
+              Your challenge is saved and ready for the feed. Let your friends believe
               in you.
             </Text>
             {!!analysisError && <Text accessibilityRole="alert" translate={false} style={{ color: c.red }}>Your challenge was posted, but analysis failed: {analysisError}</Text>}
@@ -246,7 +250,6 @@ export default function Create() {
                   setAnalysisError("");
                   analysisContext.current = null;
                   setError("");
-                  setProofPlan(null);
                 }}
                 maxLength={1000}
                 multiline
@@ -259,12 +262,6 @@ export default function Create() {
                 <BrandAsset name="stickerYouGotThis" style={styles.encouragementArt} />
                 <Text style={[s.caption, s.flex]}>A clear goal is a great first step. You’ve got this!</Text>
               </View>
-              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Analyzing…" : "Analyze"} onPress={() => void analyzeInput()} />
-              {!!analysisError && <Text accessibilityRole="alert" style={{ color: c.red }}>{analysisError}</Text>}
-              {analysis && <Text style={s.caption}>Analysis complete.</Text>}
-              {analysis && [...analysis.data.clarification_questions, ...analysis.data.actions.flatMap((action) => action.clarification_questions)].map((question, index) => (
-                <Text key={`${index}-${question}`} translate={false} style={s.caption}>{question}</Text>
-              ))}
               {!!error && (
                 <Text accessibilityRole="alert" style={{ color: c.red }}>
                   {error}
@@ -283,7 +280,9 @@ export default function Create() {
                     key={name}
                     accessibilityRole="button"
                     accessibilityState={{ selected: category === name }}
-                    onPress={() => setCategory(name)}
+                    onPress={() => {
+                      setCategory(name);
+                    }}
                     style={({ pressed }) => [
                       styles.categoryCard,
                       { backgroundColor: color },
@@ -329,7 +328,9 @@ export default function Create() {
                     accessibilityRole="button"
                     accessibilityLabel={t(`Difficulty ${value} of 5`)}
                     accessibilityState={{ selected: difficulty === value }}
-                    onPress={() => setDifficulty(value)}
+                    onPress={() => {
+                      setDifficulty(value);
+                    }}
                     style={({ pressed }) => [
                       styles.level,
                       value <= difficulty && { backgroundColor: c.primary },
@@ -361,38 +362,33 @@ export default function Create() {
                 </Text>
                 <Text style={s.caption}>100%</Text>
               </View>
-              <Pressable
+              <View
                 accessibilityRole="adjustable"
                 accessibilityLabel={t("Confidence")}
                 accessibilityValue={{ min: 0, max: 100, now: confidence }}
                 onLayout={(event) =>
-                  setConfidenceWidth(event.nativeEvent.layout.width)
+                  {
+                    confidenceTrackWidth.current = event.nativeEvent.layout.width;
+                  }
                 }
                 onStartShouldSetResponder={() => true}
-                onResponderMove={(event) => {
-                  const next = Math.round(
-                    (event.nativeEvent.locationX / confidenceWidth) * 100,
-                  );
-                  setConfidence(Math.max(0, Math.min(100, next)));
-                }}
-                onPress={(event) => {
-                  const next = Math.round(
-                    (event.nativeEvent.locationX / confidenceWidth) * 100,
-                  );
-                  setConfidence(Math.max(0, Math.min(100, next)));
-                }}
-                style={({ pressed }) => [
-                  styles.confidenceTrack,
-                  pressed && s.pressed,
-                ]}
+                onStartShouldSetResponderCapture={() => true}
+                onMoveShouldSetResponder={() => true}
+                onMoveShouldSetResponderCapture={() => true}
+                onResponderTerminationRequest={() => false}
+                onResponderGrant={(event) =>
+                  updateConfidence(event.nativeEvent.locationX)
+                }
+                onResponderMove={(event) =>
+                  updateConfidence(event.nativeEvent.locationX)
+                }
+                style={styles.confidenceTrack}
               >
-                <View
-                  style={[styles.confidenceFill, { width: `${confidence}%` }]}
-                />
+                <View style={[styles.confidenceFill, { width: `${confidence}%` }]} />
                 <View
                   style={[styles.confidenceThumb, { left: `${confidence}%` }]}
                 />
-              </Pressable>
+              </View>
               <Text style={[s.caption, { textAlign: "center" }]}>
                 Trust your gut. There’s no wrong answer.
               </Text>
@@ -404,7 +400,6 @@ export default function Create() {
                 value={deadline}
                 onChange={(value) => {
                   setDeadline(value);
-                  setProofPlan(null);
                 }}
               />
               {deadline === "Custom" ? (
@@ -416,7 +411,6 @@ export default function Create() {
                     value={customDate}
                     onChangeText={(value) => {
                       setCustomDate(value);
-                      setProofPlan(null);
                     }}
                     keyboardType="numbers-and-punctuation"
                     style={styles.deadlineInput}
@@ -428,7 +422,6 @@ export default function Create() {
                     value={customTime}
                     onChangeText={(value) => {
                       setCustomTime(value);
-                      setProofPlan(null);
                     }}
                     keyboardType="numbers-and-punctuation"
                     style={styles.deadlineInput}
@@ -440,41 +433,13 @@ export default function Create() {
                 </Text>
               )}
             </Card>
-            {proofLoading && (
-              <Card style={styles.loadingCard}>
-                <BrandAsset
-                  name="statePredicting"
-                  style={styles.loadingArt}
-                  label="Choosing your proof plan"
-                />
-                <View style={s.flex}>
-                  <Text style={s.sectionTitle}>Choosing your best proof…</Text>
-                  <Text style={s.muted}>
-                    Matching your goal to a simple way to verify it.
-                  </Text>
-                </View>
-              </Card>
-            )}
-            {!!proofError && (
-              <Text accessibilityRole="alert" style={{ color: c.red }}>
-                {proofError}
-              </Text>
-            )}
-            {proofPlan && !proofLoading && !analyzing && (
-              <ProofPlanCard
-                plan={proofPlan}
-                onConfirm={() => void createChallenge()}
-                onChangePlan={setProofPlan}
-              />
-            )}
-            {!proofPlan && !proofLoading && (
-              <Button
-                label="Choose My Proof  ✦"
-                onPress={() => void chooseProof()}
-              />
-            )}
-            <Text style={[s.caption, { textAlign: "center" }]}>
-              Visible to your friends · Demo data resets on reload
+            <Button
+              label={analyzing ? "Posting…" : "Post challenge"}
+              disabled={analyzing || !title.trim()}
+              onPress={() => void createChallenge()}
+            />
+            <Text style={[s.caption, { textAlign: "center" }]}> 
+              Visible to your friends
             </Text>
           </>
         )}

@@ -85,3 +85,29 @@ def init_db() -> None:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS challenges (
+                    id VARCHAR(64) PRIMARY KEY,
+                    user_id VARCHAR(64) NOT NULL,
+                    title VARCHAR(1000) NOT NULL,
+                    category VARCHAR(40) NOT NULL,
+                    difficulty TINYINT NOT NULL,
+                    confidence TINYINT NOT NULL,
+                    visibility VARCHAR(20) NOT NULL DEFAULT 'public',
+                    deadline_at DATETIME(6) NOT NULL,
+                    deadline_label VARCHAR(120) NOT NULL,
+                    probability DECIMAL(5,2) NOT NULL DEFAULT 50,
+                    yes_odds DECIMAL(8,2) NOT NULL DEFAULT 2,
+                    no_odds DECIMAL(8,2) NOT NULL DEFAULT 2,
+                    analysis_json JSON NULL,
+                    proof_plan_json JSON NULL,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+                        ON UPDATE CURRENT_TIMESTAMP(6),
+                    INDEX idx_challenges_user_created (user_id, created_at),
+                    INDEX idx_challenges_visibility_created (visibility, created_at),
+                    CONSTRAINT fk_challenges_user FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """
+            )
