@@ -21,6 +21,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="habit-dna" />
             <Stack.Screen name="friends" />
+            <Stack.Screen name="notifications" />
             <Stack.Screen name="badges" />
           </Stack>
           <AchievementToast />

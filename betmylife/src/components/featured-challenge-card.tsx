@@ -25,9 +25,12 @@ export function FeaturedChallengeCard({ challenge }: { challenge: Challenge }) {
         </View>
         <Text translate={false} style={styles.authorName}>{challenge.user}</Text>
         <View style={styles.categoryPill}>
-          <BrandAsset name="iconStudy" style={styles.categoryIcon} />
+          <BrandAsset
+            name={challenge.category === "Fitness" ? "iconFitness" : challenge.category === "Lifestyle" ? "iconLifestyle" : "iconStudy"}
+            style={styles.categoryIcon}
+          />
         </View>
-        <Text style={styles.categoryName}>Study</Text>
+        <Text style={styles.categoryName}>{challenge.category}</Text>
       </View>
       <Text style={styles.title}>{challenge.title}</Text>
       <Text translate={false} style={styles.confidence}>{challenge.user} is feeling <Text style={styles.confidenceValue}>{challenge.confidence}%</Text> confident</Text>

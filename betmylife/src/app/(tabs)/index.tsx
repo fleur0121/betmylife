@@ -86,6 +86,8 @@ export default function Home() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [profilePoints, setProfilePoints] = useState<number | null>(null);
+  const [renderedAt] = useState(() => Date.now());
+  const [featuredIndex, setFeaturedIndex] = useState(0);
   const list = useRef<FlatList<Challenge>>(null);
   useEffect(() => {
     if (!state.authUserId) return;
@@ -98,6 +100,7 @@ export default function Home() {
           challenges: items.map((item) => ({
             id: item.id,
             ownerId: item.user_id,
+            ownerUsername: item.user_handle,
             user: item.user_name,
             avatar: "🌷",
             color: c.lavender,
@@ -116,6 +119,7 @@ export default function Home() {
             proofPlan: item.proof_plan ?? undefined,
             result: item.result ?? undefined,
             resolvedAt: item.resolved_at ?? undefined,
+            createdAt: item.created_at,
           })),
         });
         setLoadError("");
@@ -150,7 +154,26 @@ export default function Home() {
     (prediction) => prediction.userId === state.authUserId && prediction.status === "active",
   );
   const predictionCount = activeUserPicks.length;
-  const featured = state.challenges.find((item) => item.id === "read-today");
+  const featuredCandidates = state.challenges
+    .filter((item) => {
+      const isOtherUser = item.ownerId !== state.authUserId;
+      const isActive = !item.result && (!item.deadlineAt || new Date(item.deadlineAt).getTime() > renderedAt);
+      const alreadyPicked = Object.values(state.stakedPredictions).some(
+        (prediction) => prediction.challengeId === item.id && prediction.userId === state.authUserId && prediction.status !== "void",
+      );
+      return isOtherUser && item.visibility === "public" && isActive && !alreadyPicked;
+    })
+    .sort((left, right) => (right.createdAt ?? "").localeCompare(left.createdAt ?? ""));
+  useEffect(() => {
+    if (featuredCandidates.length <= 1) return;
+    const timer = setInterval(() => {
+      setFeaturedIndex((current) => (current + 1) % featuredCandidates.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [featuredCandidates.length]);
+  const featured = featuredCandidates.length
+    ? featuredCandidates[featuredIndex % featuredCandidates.length]
+    : undefined;
   const myChallenges = state.challenges.filter(
     (item) => item.ownerId === state.authUserId,
   );
