@@ -25,6 +25,8 @@ import {
   validateStake,
 } from "@/utils/predictions";
 import { s } from "./ui-kit";
+import { placeBet } from "@/services/challenge-service";
+import { API_URL } from "@/constants/api";
 
 type PredictionPanelProps = {
   challenge: Challenge;
@@ -37,6 +39,10 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
   const [choice, setChoice] = useState<PredictionChoice | null>(null);
   const [stake, setStake] = useState<number>(PREDICTION_STAKE_PRESETS[0]);
   const [visible, setVisible] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [betError, setBetError] = useState("");
+  const [refreshingOdds, setRefreshingOdds] = useState(false);
+  const [liveOdds, setLiveOdds] = useState({ yes: Number(challenge.yesOdds), no: Number(challenge.noOdds) });
   const ownChallenge = challenge.ownerId === state.authUserId;
   const relatedPredictions = Object.values(state.stakedPredictions).filter(
     (prediction) => prediction.challengeId === challenge.id && prediction.userId === state.authUserId,
@@ -54,10 +60,26 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
     ? isPredictionLocked(currentPrediction, challenge, new Date(now))
     : windowClosed;
   const balanceForBet = state.pointsBalance + (currentPrediction?.stake ?? 0);
-  const odds = choice === "yes" ? Number(challenge.yesOdds) : Number(challenge.noOdds);
+  const currentYesOdds = Number.isFinite(liveOdds.yes) ? liveOdds.yes : Number(challenge.yesOdds);
+  const currentNoOdds = Number.isFinite(liveOdds.no) ? liveOdds.no : Number(challenge.noOdds);
+  const odds = choice === "yes" ? currentYesOdds : currentNoOdds;
   const stakeValidation = validateStake(stake, balanceForBet);
   const potentialReturn = Number.isFinite(odds) ? calculatePotentialReturn(stake, odds) : 0;
   const potentialProfit = Number.isFinite(odds) ? calculatePotentialProfit(stake, odds) : 0;
+
+  async function refreshMarket() {
+    setRefreshingOdds(true);
+    try {
+      const response = await fetch(`${API_URL}/challenges/${challenge.id}/market`);
+      if (!response.ok) throw new Error("Could not refresh odds.");
+      const market = await response.json() as { quoted_yes_odds?: number; quoted_no_odds?: number };
+      setLiveOdds({ yes: Number(market.quoted_yes_odds), no: Number(market.quoted_no_odds) });
+    } catch {
+      setBetError("Could not refresh odds. Please try again.");
+    } finally {
+      setRefreshingOdds(false);
+    }
+  }
 
   useEffect(() => {
     const remaining = lockAtMs - Date.now();
@@ -69,23 +91,40 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
   function open(choiceToMake: PredictionChoice, initialStake: number = PREDICTION_STAKE_PRESETS[0]) {
     setChoice(choiceToMake);
     setStake(initialStake);
+    setBetError("");
     setVisible(true);
   }
 
-  function confirmPrediction(predictionId: string) {
+  async function confirmPrediction() {
     if (!choice || !stakeValidation.valid || expired || windowClosed || ownChallenge || locked) return;
     if (!state.authUserId) return;
-    const prediction = createStakedPrediction({
-      id: predictionId,
-      challenge,
-      userId: state.authUserId,
-      choice,
-      stake,
-      createdAt: currentPrediction?.createdAt,
-      lockAt: currentPrediction?.lockAt ?? lockAt,
-    });
-    dispatch({ type: "place-prediction", prediction });
-    setVisible(false);
+    setPlacing(true);
+    setBetError("");
+    try {
+      const placed = await placeBet({
+        challengeId: challenge.id,
+        userId: state.authUserId,
+        side: choice,
+        stake,
+        existingBetId: currentPrediction?.id,
+      });
+      const prediction = createStakedPrediction({
+        id: placed.id,
+        challenge,
+        userId: state.authUserId,
+        choice,
+        stake,
+        lockedOdds: placed.locked_odds,
+        createdAt: currentPrediction?.createdAt,
+        lockAt: currentPrediction?.lockAt ?? lockAt,
+      });
+      dispatch({ type: "place-prediction", prediction });
+      setVisible(false);
+    } catch (error) {
+      setBetError(error instanceof Error ? error.message : "Could not place bet.");
+    } finally {
+      setPlacing(false);
+    }
   }
 
   function cancelPrediction() {
@@ -117,11 +156,11 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
         <View style={styles.ownOddsRow}>
           <View style={[styles.ownOddsCard, styles.ownOddsYesCard]}>
             <Text style={styles.ownOddsLabel}>YES</Text>
-            <Text style={styles.ownOddsYes}>×{Number(challenge.yesOdds).toFixed(2)}</Text>
+            <Text style={styles.ownOddsYes}>×{currentYesOdds.toFixed(2)}</Text>
           </View>
           <View style={[styles.ownOddsCard, styles.ownOddsNoCard]}>
             <Text style={styles.ownOddsLabel}>NO</Text>
-            <Text style={styles.ownOddsNo}>×{Number(challenge.noOdds).toFixed(2)}</Text>
+            <Text style={styles.ownOddsNo}>×{currentNoOdds.toFixed(2)}</Text>
           </View>
         </View>
       </View>
@@ -206,10 +245,19 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
       ) : (
         <>
           {variant === "featured" && <Text style={styles.featuredPrompt}>MAKE YOUR CALL ✦</Text>}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Refresh odds"
+            disabled={refreshingOdds}
+            onPress={() => void refreshMarket()}
+            style={({ pressed }) => [styles.refreshOdds, refreshingOdds && styles.disabled, pressed && s.pressed]}
+          >
+            <Text style={styles.refreshOddsText}>{refreshingOdds ? "UPDATING ODDS…" : "↻ REFRESH ODDS"}</Text>
+          </Pressable>
           <View style={[styles.choices, variant === "featured" && styles.featuredChoices]}>
             {(["yes", "no"] as const).map((option) => {
               const yes = option === "yes";
-              const selectedOdds = yes ? challenge.yesOdds : challenge.noOdds;
+              const selectedOdds = yes ? currentYesOdds : currentNoOdds;
               const tint = yes ? c.mint : c.pink;
               const strong = yes ? c.green : c.coral;
               return (
@@ -346,18 +394,19 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
               <Text style={styles.disclaimer}>{editing ? "You can still change this bet until one hour before the deadline." : "Points are for fun. Your stake leaves your balance when you lock it in."}</Text>
               <Pressable
                 accessibilityRole="button"
-                disabled={!stakeValidation.valid || !choice || expired || windowClosed || locked}
-                onPress={() => confirmPrediction(`prediction-${challenge.id}-${Date.now()}`)}
-                style={({ pressed }) => [styles.confirmButton, (!stakeValidation.valid || !choice || expired || windowClosed || locked) && styles.confirmDisabled, pressed && s.pressed]}
+                disabled={placing || !stakeValidation.valid || !choice || expired || windowClosed || locked}
+                onPress={() => void confirmPrediction()}
+                style={({ pressed }) => [styles.confirmButton, (placing || !stakeValidation.valid || !choice || expired || windowClosed || locked) && styles.confirmDisabled, pressed && s.pressed]}
               >
                 <Text style={styles.confirmText}>
-                  <Text>{editing ? "UPDATE BET TO " : "LOCK IN "}</Text>
+                  <Text>{placing ? "PLACING BET… " : editing ? "UPDATE BET TO " : "LOCK IN "}</Text>
                   <Text translate={false}>{stake} PT</Text>
                   <Text> ON </Text>
                   <Text translate={false}>{choice?.toUpperCase() ?? "—"} ✦</Text>
                 </Text>
                 <Text style={styles.confirmArrow}>→</Text>
               </Pressable>
+              {!!betError && <Text style={styles.lowBalance}>{betError}</Text>}
               {!stakeValidation.valid && balanceForBet < 10 && (
                 <Text style={styles.lowBalance}>You need at least 10 PT to make a prediction.</Text>
               )}
@@ -371,6 +420,8 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
 
 const styles = StyleSheet.create({
   choices: { flexDirection: "row", gap: 8 },
+  refreshOdds: { alignSelf: "flex-end", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: "rgba(255,255,255,0.18)" },
+  refreshOddsText: { color: "#DCE7FF", fontSize: 8, fontWeight: "900", letterSpacing: 0.5 },
   featuredChoices: { marginTop: 8 },
   choiceButton: { minHeight: 48, flex: 1, paddingHorizontal: 13, borderWidth: 2, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   choiceLabel: { fontSize: 13, fontWeight: "900", letterSpacing: 0.4 },

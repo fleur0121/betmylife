@@ -1,25 +1,17 @@
 services:
-  ml-odds:
+  ml-api:
     build:
-      context: .
+      context: ./betmylife
       dockerfile: ml-api/Dockerfile
     restart: unless-stopped
-    env_file:
-      - ./betmylife/backend/.env
-    volumes:
-      - /etc/ssl/cert.pem:/etc/ssl/cert.pem:ro
+    ports:
+      - "${ML_API_PORT:-8001}:8000"
     healthcheck:
-      test:
-        [
-          "CMD",
-          "python",
-          "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health')",
-        ]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 12
-      start_period: 20s
+      start_period: 10s
 
   api:
     build:
@@ -29,9 +21,9 @@ services:
     env_file:
       - ./betmylife/backend/.env
     environment:
-      ODDS_API_URL: http://ml-odds:8001/predict
+      ML_API_URL: http://ml-api:8000/predict
     depends_on:
-      ml-odds:
+      ml-api:
         condition: service_healthy
     ports:
       - "${API_PORT:-8000}:8000"

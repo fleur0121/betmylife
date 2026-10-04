@@ -63,10 +63,10 @@ The challenge API owns prediction requests, TiDB history aggregation, and result
 From the `BetMyLife` repository root (the directory containing `docker-compose.yml`):
 
 ```bash
-docker compose -f docker-compose.yml -f betmylife/docker-compose.ml.yml up --build
+docker compose up --build
 ```
 
-Set `ML_API_URL=http://ml-api:8000/predict` for the API service. The overlay sets this automatically and starts the ML API on host port 8001. The existing external TiDB settings remain in `betmylife/backend/.env` (`TIDB_HOST`, `TIDB_PORT`, `TIDB_USER`, `TIDB_PASSWORD`, `TIDB_DATABASE`, and optional `TIDB_CA_PATH`). Keep `GEMINI_API_KEY` and the existing app API URL configured as before.
+The Compose file starts the unified ML API on host port 8001 and connects the backend to it with `ML_API_URL=http://ml-api:8000/predict`. The existing external TiDB settings remain in `betmylife/backend/.env` (`TIDB_HOST`, `TIDB_PORT`, `TIDB_USER`, `TIDB_PASSWORD`, `TIDB_DATABASE`, and optional `TIDB_CA_PATH`). Keep `GEMINI_API_KEY` and the existing app API URL configured as before.
 
 ## Run each service locally
 

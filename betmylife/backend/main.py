@@ -34,6 +34,10 @@ try:
     from .db import get_connection, init_db
 except ImportError:  # Supports `uvicorn main:app` from the backend directory.
     from db import get_connection, init_db
+try:
+    from .sportsbook import quote_market
+except ImportError:
+    from sportsbook import quote_market
 
 load_dotenv()
 cors_origins = [
@@ -259,6 +263,11 @@ class ChallengeResponse(ChallengeCreateRequest):
     probability: float
     yes_odds: float
     no_odds: float
+    model_probability: float
+    market_probability: float
+    quoted_yes_odds: float
+    quoted_no_odds: float
+    overround: float
     prediction_source: str = "fallback"
     prediction_model_version: str | None = None
     prediction_meta: dict | None = None
@@ -268,6 +277,39 @@ class ChallengeResponse(ChallengeCreateRequest):
 
 class ChallengeResultRequest(BaseModel):
     result: Literal["success", "failed"]
+
+
+class BetPlacementRequest(BaseModel):
+    user_id: str
+    side: Literal["yes", "no"]
+    stake: int = Field(ge=10, le=200)
+    existing_bet_id: str | None = None
+
+
+class BetPlacementResponse(BaseModel):
+    id: str
+    challenge_id: str
+    side: Literal["yes", "no"]
+    stake: int
+    locked_odds: float
+    model_probability: float
+    market_probability: float
+    quote_version: int
+    balance: int
+    current_yes_odds: float
+    current_no_odds: float
+
+
+class MarketQuoteResponse(BaseModel):
+    challenge_id: str
+    model_probability: float
+    market_probability: float
+    quoted_yes_odds: float
+    quoted_no_odds: float
+    overround: float
+    quote_version: int
+    yes_stake: float
+    no_stake: float
 
 
 def is_profile_complete(user: dict) -> bool:
@@ -644,6 +686,11 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         probability=float(row["probability"]),
         yes_odds=float(row["yes_odds"]),
         no_odds=float(row["no_odds"]),
+        model_probability=float(row.get("model_probability") or float(row["probability"]) / 100),
+        market_probability=float(row.get("market_probability") or float(row["probability"]) / 100),
+        quoted_yes_odds=float(row["yes_odds"]),
+        quoted_no_odds=float(row["no_odds"]),
+        overround=float(row.get("overround") or 0.05),
         analysis=load_json("analysis_json"),
         proof_plan=load_json("proof_plan_json"),
         user_input=load_json("user_input_json"),
@@ -654,6 +701,40 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         resolved_at=_timestamp(resolved_at) if resolved_at else None,
         created_at=row["created_at"].isoformat(),
     )
+
+
+def _apply_market_quote(cursor, row: dict) -> dict:
+    """Attach the current sportsbook quote without changing ML probability."""
+    cursor.execute(
+        "SELECT model_probability, market_probability, quoted_yes_odds, quoted_no_odds, overround, quote_version "
+        "FROM sportsbook_markets WHERE challenge_id = %s",
+        (row["id"],),
+    )
+    market = cursor.fetchone()
+    if market is None:
+        quote = quote_market(float(row["probability"]) / 100)
+        cursor.execute(
+            """INSERT IGNORE INTO sportsbook_markets
+            (challenge_id, model_probability, market_probability, quoted_yes_odds,
+             quoted_no_odds, overround)
+            VALUES (%s, %s, %s, %s, %s, %s)""",
+            (row["id"], quote.model_probability, quote.market_probability,
+             quote.quoted_yes_odds, quote.quoted_no_odds, quote.overround),
+        )
+        cursor.execute(
+            "SELECT model_probability, market_probability, quoted_yes_odds, quoted_no_odds, overround, quote_version "
+            "FROM sportsbook_markets WHERE challenge_id = %s",
+            (row["id"],),
+        )
+        market = cursor.fetchone()
+    row.update({
+        "model_probability": market["model_probability"],
+        "market_probability": market["market_probability"],
+        "yes_odds": market["quoted_yes_odds"],
+        "no_odds": market["quoted_no_odds"],
+        "overround": market["overround"],
+    })
+    return row
 
 
 @app.post(
@@ -724,6 +805,7 @@ def create_challenge(
         "category": prediction.get("category", features["category"]),
         "goal_type": prediction.get("goal_type", features["goal_type"]),
     }
+    opening_quote = quote_market(float(prediction["success_probability"]))
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
@@ -747,8 +829,8 @@ def create_challenge(
                     parsed_deadline,
                     request.deadline_label,
                     probability,
-                    prediction["yes_odds"],
-                    prediction["no_odds"],
+                    opening_quote.quoted_yes_odds,
+                    opening_quote.quoted_no_odds,
                     (
                         json.dumps(request.analysis, ensure_ascii=False)
                         if request.analysis is not None
@@ -763,6 +845,20 @@ def create_challenge(
                     prediction["prediction_source"],
                     prediction.get("model_version"),
                     json.dumps(prediction_meta, ensure_ascii=False),
+                ),
+            )
+            cursor.execute(
+                """INSERT INTO sportsbook_markets
+                (challenge_id, model_probability, market_probability, quoted_yes_odds,
+                 quoted_no_odds, overround)
+                VALUES (%s, %s, %s, %s, %s, %s)""",
+                (
+                    challenge_id,
+                    opening_quote.model_probability,
+                    opening_quote.market_probability,
+                    opening_quote.quoted_yes_odds,
+                    opening_quote.quoted_no_odds,
+                    opening_quote.overround,
                 ),
             )
             cursor.execute(
@@ -800,7 +896,7 @@ def list_challenges(
                 ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
                 (user_id, int(can_view_private), limit, offset),
             )
-            return [_challenge_response(row) for row in cursor.fetchall()]
+            return [_challenge_response(_apply_market_quote(cursor, row)) for row in cursor.fetchall()]
 
 
 @app.get("/challenges", response_model=list[ChallengeResponse])
@@ -833,7 +929,159 @@ def list_public_challenges(
                 ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
                 (viewer_id, viewer_id, viewer_id, viewer_id, limit, offset),
             )
-            return [_challenge_response(row) for row in cursor.fetchall()]
+            return [_challenge_response(_apply_market_quote(cursor, row)) for row in cursor.fetchall()]
+
+
+@app.get("/challenges/{challenge_id}/market", response_model=MarketQuoteResponse)
+def get_market_quote(challenge_id: str) -> MarketQuoteResponse:
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id, probability FROM challenges WHERE id = %s", (challenge_id,))
+            challenge = cursor.fetchone()
+            if challenge is None:
+                raise HTTPException(status_code=404, detail="Challenge not found")
+            cursor.execute("SELECT * FROM sportsbook_markets WHERE challenge_id = %s", (challenge_id,))
+            market = cursor.fetchone()
+            if market is None:
+                quote = quote_market(float(challenge["probability"]) / 100)
+                cursor.execute(
+                    """INSERT INTO sportsbook_markets
+                    (challenge_id, model_probability, market_probability, quoted_yes_odds,
+                     quoted_no_odds, overround)
+                    VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (challenge_id, quote.model_probability, quote.market_probability,
+                     quote.quoted_yes_odds, quote.quoted_no_odds, quote.overround),
+                )
+                cursor.execute("SELECT * FROM sportsbook_markets WHERE challenge_id = %s", (challenge_id,))
+                market = cursor.fetchone()
+    return MarketQuoteResponse(
+        challenge_id=challenge_id,
+        model_probability=float(market["model_probability"]),
+        market_probability=float(market["market_probability"]),
+        quoted_yes_odds=float(market["quoted_yes_odds"]),
+        quoted_no_odds=float(market["quoted_no_odds"]),
+        overround=float(market["overround"]),
+        quote_version=int(market["quote_version"]),
+        yes_stake=float(market["yes_stake"]),
+        no_stake=float(market["no_stake"]),
+    )
+
+
+@app.post("/challenges/{challenge_id}/bets", response_model=BetPlacementResponse, status_code=201)
+def place_sportsbook_bet(challenge_id: str, request: BetPlacementRequest) -> BetPlacementResponse:
+    """Place a fixed-odds bet and lock the quote used for this bet."""
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_connection() as connection:
+        connection.begin()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM challenges WHERE id = %s FOR UPDATE",
+                    (challenge_id,),
+                )
+                challenge = cursor.fetchone()
+                if challenge is None:
+                    raise HTTPException(status_code=404, detail="Challenge not found")
+                if challenge["user_id"] == request.user_id:
+                    raise HTTPException(status_code=400, detail="You cannot bet on your own challenge")
+                if challenge.get("result"):
+                    raise HTTPException(status_code=409, detail="Challenge is already settled")
+                if now >= challenge["deadline_at"] - timedelta(hours=1):
+                    raise HTTPException(status_code=409, detail="Betting is closed for this challenge")
+
+                cursor.execute("SELECT id, points FROM users WHERE id = %s FOR UPDATE", (request.user_id,))
+                user = cursor.fetchone()
+                if user is None:
+                    raise HTTPException(status_code=404, detail="User not found")
+                cursor.execute(
+                    "SELECT * FROM sportsbook_bets WHERE challenge_id = %s AND user_id = %s AND status = 'active' FOR UPDATE",
+                    (challenge_id, request.user_id),
+                )
+                existing_bet = cursor.fetchone()
+                if existing_bet is not None and existing_bet["id"] != request.existing_bet_id:
+                    raise HTTPException(status_code=409, detail="You already have an active bet on this challenge")
+                previous_stake = int(existing_bet["stake"]) if existing_bet else 0
+                if int(user["points"]) + previous_stake < request.stake:
+                    raise HTTPException(status_code=400, detail="Insufficient points")
+
+                cursor.execute(
+                    "SELECT * FROM sportsbook_markets WHERE challenge_id = %s FOR UPDATE",
+                    (challenge_id,),
+                )
+                market = cursor.fetchone()
+                if market is None:
+                    opening = quote_market(float(challenge["probability"]) / 100)
+                    cursor.execute(
+                        """INSERT INTO sportsbook_markets
+                        (challenge_id, model_probability, market_probability, quoted_yes_odds,
+                         quoted_no_odds, overround)
+                        VALUES (%s, %s, %s, %s, %s, %s)""",
+                        (challenge_id, opening.model_probability, opening.market_probability,
+                         opening.quoted_yes_odds, opening.quoted_no_odds, opening.overround),
+                    )
+                    market = {
+                        "model_probability": opening.model_probability,
+                        "market_probability": opening.market_probability,
+                        "quoted_yes_odds": opening.quoted_yes_odds,
+                        "quoted_no_odds": opening.quoted_no_odds,
+                        "quote_version": 1,
+                        "yes_stake": 0,
+                        "no_stake": 0,
+                    }
+
+                base_yes_stake = float(market["yes_stake"]) - (previous_stake if existing_bet and existing_bet["side"] == "yes" else 0)
+                base_no_stake = float(market["no_stake"]) - (previous_stake if existing_bet and existing_bet["side"] == "no" else 0)
+                replacement_quote = quote_market(float(market["model_probability"]), base_yes_stake, base_no_stake)
+                locked_odds = float(replacement_quote.quoted_yes_odds if request.side == "yes" else replacement_quote.quoted_no_odds)
+                bet_id = existing_bet["id"] if existing_bet else str(uuid.uuid4())
+                if existing_bet:
+                    cursor.execute(
+                        """UPDATE sportsbook_bets SET side = %s, stake = %s, locked_odds = %s,
+                        model_probability = %s, market_probability = %s, quote_version = %s,
+                        payout = NULL, status = 'active', settled_at = NULL WHERE id = %s""",
+                        (request.side, request.stake, locked_odds, market["model_probability"],
+                         replacement_quote.market_probability, market["quote_version"], bet_id),
+                    )
+                else:
+                    cursor.execute(
+                        """INSERT INTO sportsbook_bets
+                        (id, challenge_id, user_id, side, stake, locked_odds,
+                         model_probability, market_probability, quote_version)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                        (bet_id, challenge_id, request.user_id, request.side, request.stake,
+                         locked_odds, market["model_probability"], replacement_quote.market_probability, market["quote_version"]),
+                    )
+                new_balance = int(user["points"]) + previous_stake - request.stake
+                cursor.execute("UPDATE users SET points = %s WHERE id = %s", (new_balance, request.user_id))
+                yes_stake = base_yes_stake + (request.stake if request.side == "yes" else 0)
+                no_stake = base_no_stake + (request.stake if request.side == "no" else 0)
+                current_quote = quote_market(float(market["model_probability"]), yes_stake, no_stake)
+                next_version = int(market["quote_version"]) + 1
+                cursor.execute(
+                    """UPDATE sportsbook_markets SET yes_stake = %s, no_stake = %s,
+                    market_probability = %s, quoted_yes_odds = %s, quoted_no_odds = %s,
+                    quote_version = %s WHERE challenge_id = %s""",
+                    (yes_stake, no_stake, current_quote.market_probability,
+                     current_quote.quoted_yes_odds, current_quote.quoted_no_odds,
+                     next_version, challenge_id),
+                )
+            connection.commit()
+            return BetPlacementResponse(
+                id=bet_id,
+                challenge_id=challenge_id,
+                side=request.side,
+                stake=request.stake,
+                locked_odds=locked_odds,
+                model_probability=float(market["model_probability"]),
+                market_probability=float(market["market_probability"]),
+                quote_version=int(market["quote_version"]),
+                balance=new_balance,
+                current_yes_odds=current_quote.quoted_yes_odds,
+                current_no_odds=current_quote.quoted_no_odds,
+            )
+        except Exception:
+            connection.rollback()
+            raise
 
 
 @app.post("/users/{user_id}/challenges/{challenge_id}/result")
@@ -920,6 +1168,26 @@ def record_challenge_result(
                         1 if request.result == "success" else 0,
                     ),
                 )
+                if created:
+                    winning_side = "yes" if request.result == "success" else "no"
+                    cursor.execute(
+                        "SELECT id, user_id, side, stake, locked_odds FROM sportsbook_bets "
+                        "WHERE challenge_id = %s AND status = 'active' FOR UPDATE",
+                        (challenge_id,),
+                    )
+                    for bet in cursor.fetchall():
+                        won = bet["side"] == winning_side
+                        payout = int(round(float(bet["stake"]) * float(bet["locked_odds"]))) if won else 0
+                        status = "won" if won else "lost"
+                        cursor.execute(
+                            "UPDATE sportsbook_bets SET status = %s, payout = %s, settled_at = %s WHERE id = %s",
+                            (status, payout, resolved_at, bet["id"]),
+                        )
+                        if payout:
+                            cursor.execute(
+                                "UPDATE users SET points = points + %s WHERE id = %s",
+                                (payout, bet["user_id"]),
+                            )
                 connection.commit()
                 return {
                     "status": "recorded",

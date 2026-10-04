@@ -168,6 +168,47 @@ def init_db() -> None:
                 if not cursor.fetchone():
                     cursor.execute(f"ALTER TABLE challenges ADD COLUMN {column} {definition}")
             cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sportsbook_markets (
+                    challenge_id VARCHAR(64) PRIMARY KEY,
+                    model_probability DECIMAL(8,6) NOT NULL,
+                    market_probability DECIMAL(8,6) NOT NULL,
+                    quoted_yes_odds DECIMAL(8,2) NOT NULL,
+                    quoted_no_odds DECIMAL(8,2) NOT NULL,
+                    overround DECIMAL(8,6) NOT NULL DEFAULT 0.05,
+                    yes_stake DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    no_stake DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    quote_version INT NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+                        ON UPDATE CURRENT_TIMESTAMP(6),
+                    CONSTRAINT fk_sportsbook_market_challenge
+                        FOREIGN KEY (challenge_id) REFERENCES challenges(id)
+                )
+                """)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS sportsbook_bets (
+                    id VARCHAR(64) PRIMARY KEY,
+                    challenge_id VARCHAR(64) NOT NULL,
+                    user_id VARCHAR(64) NOT NULL,
+                    side VARCHAR(3) NOT NULL,
+                    stake INT NOT NULL,
+                    locked_odds DECIMAL(8,2) NOT NULL,
+                    model_probability DECIMAL(8,6) NOT NULL,
+                    market_probability DECIMAL(8,6) NOT NULL,
+                    quote_version INT NOT NULL,
+                    status VARCHAR(16) NOT NULL DEFAULT 'active',
+                    payout INT NULL,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    settled_at TIMESTAMP(6) NULL,
+                    INDEX idx_sportsbook_bets_challenge (challenge_id, status),
+                    INDEX idx_sportsbook_bets_user (user_id, status),
+                    CONSTRAINT fk_sportsbook_bet_challenge
+                        FOREIGN KEY (challenge_id) REFERENCES challenges(id),
+                    CONSTRAINT fk_sportsbook_bet_user
+                        FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+                """)
+            cursor.execute("""
                 CREATE TABLE IF NOT EXISTS ml_observations (
                     id VARCHAR(64) PRIMARY KEY,
                     source VARCHAR(32) NOT NULL,

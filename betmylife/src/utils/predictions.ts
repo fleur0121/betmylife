@@ -98,10 +98,11 @@ export function createStakedPrediction(input: {
   userId: string;
   choice: PredictionChoice;
   stake: number;
+  lockedOdds?: number;
   createdAt?: string;
   lockAt?: string;
 }): Prediction {
-  const lockedOdds = Number(input.choice === "yes" ? input.challenge.yesOdds : input.challenge.noOdds);
+  const lockedOdds = input.lockedOdds ?? Number(input.choice === "yes" ? input.challenge.yesOdds : input.challenge.noOdds);
   if (!Number.isFinite(lockedOdds) || lockedOdds <= 0) throw new Error("Prediction odds must be positive.");
   const potentialReturn = calculatePotentialReturn(input.stake, lockedOdds);
   return {

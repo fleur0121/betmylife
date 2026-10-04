@@ -254,10 +254,14 @@ def request_prediction(features: dict, history: dict) -> dict:
         response.raise_for_status()
         data = response.json()
         probability = float(data["success_probability"])
-        yes_odds = float(data["yes_odds"])
-        no_odds = float(data["no_odds"])
-        if not (0 < probability < 1 and yes_odds > 0 and no_odds > 0):
-            raise ValueError("ML API returned invalid probability or odds")
+        if not (0 < probability < 1):
+            raise ValueError("ML API returned an invalid success probability")
+        # Legacy odds are accepted for compatibility with the current ML
+        # service, but the sportsbook pricing engine never uses them.
+        yes_odds = float(data.get("yes_odds", 1 / probability))
+        no_odds = float(data.get("no_odds", 1 / (1 - probability)))
+        if yes_odds <= 0 or no_odds <= 0:
+            raise ValueError("ML API returned invalid legacy odds")
         return {"success_probability": probability, "yes_odds": yes_odds, "no_odds": no_odds,
                 "prediction_source": data.get("prediction_source", "trained"),
                 "model_version": data.get("model_version", "unknown"),

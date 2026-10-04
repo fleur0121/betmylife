@@ -31,6 +31,11 @@ export type SavedChallenge = {
   probability: number;
   yes_odds: number;
   no_odds: number;
+  model_probability: number;
+  market_probability: number;
+  quoted_yes_odds: number;
+  quoted_no_odds: number;
+  overround: number;
   proof_plan: Challenge["proofPlan"];
   result: Challenge["result"];
   resolved_at: string | null;
@@ -85,4 +90,40 @@ export async function getPublicChallenges(userId: string) {
   const body = await response.json();
   if (!response.ok) throw new Error(body.detail ?? `Challenge feed load failed (${response.status}).`);
   return body as Awaited<ReturnType<typeof getChallenges>>;
+}
+
+export type PlacedBet = {
+  id: string;
+  challenge_id: string;
+  side: "yes" | "no";
+  stake: number;
+  locked_odds: number;
+  model_probability: number;
+  market_probability: number;
+  quote_version: number;
+  balance: number;
+  current_yes_odds: number;
+  current_no_odds: number;
+};
+
+export async function placeBet(input: {
+  challengeId: string;
+  userId: string;
+  side: "yes" | "no";
+  stake: number;
+  existingBetId?: string;
+}): Promise<PlacedBet> {
+  const response = await fetch(`${API_URL}/challenges/${input.challengeId}/bets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      user_id: input.userId,
+      side: input.side,
+      stake: input.stake,
+      ...(input.existingBetId ? { existing_bet_id: input.existingBetId } : {}),
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail ?? `Bet placement failed (${response.status}).`);
+  return body as PlacedBet;
 }
