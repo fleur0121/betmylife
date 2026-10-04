@@ -30,7 +30,7 @@ services:
       context: ./betmylife
     restart: unless-stopped
     environment:
-      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://172.16.194.231:8000}
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8000}
       REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-localhost}
       CHOKIDAR_USEPOLLING: "true"
     ports:

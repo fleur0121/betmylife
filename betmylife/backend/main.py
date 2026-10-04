@@ -17,9 +17,9 @@ try:
 except ImportError:
     from challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 try:
-    from .dbv2 import get_connection, init_db
-except ImportError:  # Supports `uvicorn mainv2:app` from the backend directory.
-    from dbv2 import get_connection, init_db
+    from .db import get_connection, init_db
+except ImportError:  # Supports `uvicorn main:app` from the backend directory.
+    from db import get_connection, init_db
 
 load_dotenv()
 cors_origins = [
@@ -200,6 +200,7 @@ class ChallengeCreateRequest(BaseModel):
 class ChallengeResponse(ChallengeCreateRequest):
     id: str
     user_id: str
+    user_name: str
     created_at: str
 
 
@@ -523,6 +524,7 @@ def _challenge_response(row: dict) -> ChallengeResponse:
     return ChallengeResponse(
         id=row["id"],
         user_id=row["user_id"],
+        user_name=row["user_name"],
         title=row["title"],
         category=row["category"],
         difficulty=row["difficulty"],
@@ -604,7 +606,9 @@ def create_challenge(
                 ),
             )
             cursor.execute(
-                "SELECT * FROM challenges WHERE id = %s", (challenge_id,)
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                FROM challenges c JOIN users u ON u.id = c.user_id WHERE c.id = %s""",
+                (challenge_id,),
             )
             return _challenge_response(cursor.fetchone())
 
@@ -621,8 +625,33 @@ def list_challenges(
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute(
-                "SELECT * FROM challenges WHERE user_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                FROM challenges c JOIN users u ON u.id = c.user_id
+                WHERE c.user_id = %s ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
                 (user_id, limit, offset),
+            )
+            return [_challenge_response(row) for row in cursor.fetchall()]
+
+
+@app.get("/challenges", response_model=list[ChallengeResponse])
+def list_public_challenges(
+    viewer_id: str | None = None, limit: int = 50, offset: int = 0
+) -> list[ChallengeResponse]:
+    """Return public challenges, plus the viewer's own friends-only posts."""
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            if viewer_id:
+                cursor.execute("SELECT id FROM users WHERE id = %s", (viewer_id,))
+                if cursor.fetchone() is None:
+                    raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """SELECT c.*, COALESCE(NULLIF(u.nickname, ''), NULLIF(u.display_name, ''), u.username) AS user_name
+                FROM challenges c JOIN users u ON u.id = c.user_id
+                WHERE c.visibility = 'public' OR (%s IS NOT NULL AND c.user_id = %s)
+                ORDER BY c.created_at DESC LIMIT %s OFFSET %s""",
+                (viewer_id, viewer_id, limit, offset),
             )
             return [_challenge_response(row) for row in cursor.fetchall()]
 

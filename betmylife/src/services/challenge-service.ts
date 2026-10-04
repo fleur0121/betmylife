@@ -46,6 +46,7 @@ export async function getChallenges(userId: string) {
   return body as {
     id: string;
     user_id: string;
+    user_name: string;
     title: string;
     category: Challenge["category"];
     difficulty: number;
@@ -58,4 +59,11 @@ export async function getChallenges(userId: string) {
     no_odds: number;
     proof_plan: Challenge["proofPlan"];
   }[];
+}
+
+export async function getPublicChallenges(userId: string) {
+  const response = await fetch(`${API_URL}/challenges?viewer_id=${encodeURIComponent(userId)}`);
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.detail ?? `Challenge feed load failed (${response.status}).`);
+  return body as Awaited<ReturnType<typeof getChallenges>>;
 }
