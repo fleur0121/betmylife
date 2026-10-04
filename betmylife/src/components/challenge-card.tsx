@@ -43,8 +43,8 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${challenge.user}'s profile`}
-        onPress={() => author && router.push(`/user/${author.id}`)}
-        disabled={!author}
+        onPress={() => (challenge.ownerId ?? author?.id) && router.push(`/user/${challenge.ownerId ?? author?.id}`)}
+        disabled={!challenge.ownerId && !author}
         style={({ pressed }) => [styles.author, pressed && s.pressed]}
       >
         <Avatar emoji={challenge.avatar} color={challenge.color} size={42} />
@@ -58,7 +58,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
               numberOfLines={1}
               style={[s.caption, { flexShrink: 1 }]}
             >
-              @{author?.id ?? challenge.user.toLowerCase()}
+              @{challenge.ownerId ?? author?.id ?? challenge.user.toLowerCase()}
             </Text>
           </View>
           <Text style={s.caption}>◷ {challenge.deadline}</Text>
@@ -136,7 +136,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
             ? `You’re locked on ${selected.toUpperCase()}`
             : "Choose a side to stake points"}
         </Text>
-        {challenge.user === "Fuka" && (
+        {challenge.ownerId === state.authUserId && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("Delete post")}

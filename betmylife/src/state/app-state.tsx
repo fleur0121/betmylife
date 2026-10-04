@@ -4,7 +4,7 @@ import { BADGE_METADATA, type BadgeId } from "@/achievements/badge-metadata";
 import { rewards } from "@/constants/rewards";
 import type { CosmeticSlot } from "@/constants/rewards";
 import type { Challenge, Prediction, PredictionChoice } from "@/mock/data";
-import { friendDirectory, myFriendId } from "@/mock/friends";
+import { friendDirectory } from "@/mock/friends";
 import {
   getPredictionLockAt,
   isChallengeExpired,
@@ -169,7 +169,7 @@ export function appReducer(state: State, action: Action): State {
     case "hydrate":
       return finalizeTransition(state, loadPersistedState(state, action.data, action.badges), false);
     case "set-following-ids":
-      return finalizeTransition(state, { ...state, followingIds: [...new Set(action.ids.filter((id) => id !== myFriendId))] });
+      return finalizeTransition(state, { ...state, followingIds: [...new Set(action.ids.filter((id) => id !== state.authUserId))] });
     case "badge-claim-completed": {
       const definition = BADGE_METADATA.find((badge) => badge.id === action.badgeId);
       if (!definition) return state;
@@ -193,7 +193,7 @@ export function appReducer(state: State, action: Action): State {
     case "dismiss-badge-notification":
       return { ...state, badgeNotifications: state.badgeNotifications.filter((id) => id !== action.badgeId) };
     case "add-friend": {
-      if (action.id === myFriendId || state.friendIds.includes(action.id) || !friendDirectory.some((friend) => friend.id === action.id)) return state;
+      if (action.id === state.authUserId || state.friendIds.includes(action.id) || !friendDirectory.some((friend) => friend.id === action.id)) return state;
       return finalizeTransition(state, { ...state, friendIds: [...state.friendIds, action.id] });
     }
     case "place-prediction": {
@@ -204,7 +204,7 @@ export function appReducer(state: State, action: Action): State {
       const odds = challenge && Number(prediction.choice === "yes" ? challenge.yesOdds : challenge.noOdds);
       const previous = Object.values(state.stakedPredictions).find((item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && item.status === "active");
       const settledBefore = Object.values(state.stakedPredictions).some((item) => item.challengeId === prediction.challengeId && item.userId === prediction.userId && (item.status === "won" || item.status === "lost"));
-      if (!challenge || !user || prediction.userId !== myFriendId || !author || author.id === prediction.userId || !validateStake(prediction.stake, state.wallet + (previous?.stake ?? 0)).valid || isChallengeExpired(challenge) || isPredictionWindowClosed(challenge) || (previous !== undefined && isPredictionLocked(previous, challenge)) || settledBefore || !Number.isFinite(odds) || odds! <= 0 || prediction.lockedOdds !== odds || prediction.status !== "active" || Object.values(state.stakedPredictions).some((item) => item.challengeId === challenge.id && item.userId === prediction.userId && item.status !== "void" && item !== previous) || (state.stakedPredictions[prediction.id] !== undefined && state.stakedPredictions[prediction.id] !== previous)) return state;
+      if (!state.authUserId || !challenge || !user || prediction.userId !== state.authUserId || !author || author.id === prediction.userId || !validateStake(prediction.stake, state.wallet + (previous?.stake ?? 0)).valid || isChallengeExpired(challenge) || isPredictionWindowClosed(challenge) || (previous !== undefined && isPredictionLocked(previous, challenge)) || settledBefore || !Number.isFinite(odds) || odds! <= 0 || prediction.lockedOdds !== odds || prediction.status !== "active" || Object.values(state.stakedPredictions).some((item) => item.challengeId === challenge.id && item.userId === prediction.userId && item.status !== "void" && item !== previous) || (state.stakedPredictions[prediction.id] !== undefined && state.stakedPredictions[prediction.id] !== previous)) return state;
       const storedPrediction: Prediction = {
         ...prediction,
         id: previous?.id ?? prediction.id,
@@ -224,7 +224,7 @@ export function appReducer(state: State, action: Action): State {
     }
     case "cancel-prediction": {
       const challenge = state.challenges.find((item) => item.id === action.challengeId);
-      const prediction = Object.values(state.stakedPredictions).find((item) => item.challengeId === action.challengeId && item.userId === myFriendId && item.status === "active");
+      const prediction = Object.values(state.stakedPredictions).find((item) => item.challengeId === action.challengeId && item.userId === state.authUserId && item.status === "active");
       if (!challenge || !prediction || isPredictionLocked(prediction, challenge)) return state;
       const settledAt = action.cancelledAt ?? new Date().toISOString();
       const stakedPredictions = { ...state.stakedPredictions, [prediction.id]: { ...prediction, status: "void" as const, payout: prediction.stake, settledAt } };

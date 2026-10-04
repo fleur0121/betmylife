@@ -14,10 +14,12 @@ export function LeaderboardRow({
   user,
   rank,
   score,
+  currentUserName,
 }: {
   user: (typeof users)[number];
   rank: number;
   score: string;
+  currentUserName?: string;
 }) {
   const profile = friendDirectory.find((friend) => friend.name === user.name);
   return (
@@ -31,7 +33,7 @@ export function LeaderboardRow({
         {
           padding: 14,
           borderRadius: 16,
-          backgroundColor: user.name === "Fuka" ? c.lavenderLight : c.card,
+          backgroundColor: user.name === currentUserName ? c.lavenderLight : c.card,
         },
       ]}
     >
@@ -39,7 +41,7 @@ export function LeaderboardRow({
       <Avatar emoji={user.avatar} color={user.color} size={40} />
       <Text style={[s.bold, s.flex]}>
         {user.name}
-        {user.name === "Fuka" ? " (you)" : ""}
+        {user.name === currentUserName ? " (you)" : ""}
       </Text>
       <Text style={[s.bold, { color: c.primaryDark }]}>{score}</Text>
     </Pressable>

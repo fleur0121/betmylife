@@ -17,6 +17,7 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { API_URL } from "@/constants/api";
 import { BrandAsset } from "@/components/brand-asset";
 import { useLanguage } from "@/i18n/language";
 import { friendDirectory, myFriendId, type Friend } from "@/mock/friends";
@@ -27,15 +28,25 @@ import {
     parseFriendQR,
 } from "@/utils/friend-id";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 export default function Friends() {
   const { state, dispatch } = useAppState();
   const { t } = useLanguage();
+  const [myId, setMyId] = useState(myFriendId);
   const [mode, setMode] = useState("By ID");
   const [query, setQuery] = useState("");
   const [candidate, setCandidate] = useState<Friend | null>(null);
   const [message, setMessage] = useState("");
+  useEffect(() => {
+    if (!state.authUserId) return;
+    fetch(`${API_URL}/users/${state.authUserId}/profile`)
+      .then((response) => response.json())
+      .then((profile: { username?: string }) => {
+        if (profile.username) setMyId(profile.username);
+      })
+      .catch(() => undefined);
+  }, [state.authUserId]);
   function search(id: string | null) {
     setCandidate(null);
     setMessage("");
@@ -47,7 +58,7 @@ export default function Friends() {
       setMessage("Enter a friend ID.");
       return;
     }
-    if (id === myFriendId) {
+    if (id === myId) {
       setMessage("That’s your own ID.");
       return;
     }
@@ -114,13 +125,13 @@ export default function Friends() {
       {mode === "My QR" && (
         <Card>
           <Text style={s.sectionTitle}>Show this QR to a friend.</Text>
-          <FriendQR id={myFriendId} />
+          <FriendQR id={myId} />
           <Text style={s.caption}>Your ID</Text>
           <Text selectable translate={false} style={s.bold}>
-            {myFriendId}
+            {myId}
           </Text>
           <Text selectable translate={false} style={s.caption}>
-            {encodeFriendQR(myFriendId)}
+            {encodeFriendQR(myId)}
           </Text>
         </Card>
       )}
