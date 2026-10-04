@@ -1,0 +1,17 @@
+services:
+  api:
+    environment:
+      TIDB_HOST: ${TIDB_HOST}
+      TIDB_PORT: ${TIDB_PORT:-4000}
+      TIDB_USER: ${TIDB_USER}
+      TIDB_PASSWORD: ${TIDB_PASSWORD}
+      TIDB_DATABASE: ${TIDB_DATABASE:-test}
+      TIDB_CA_PATH: ${TIDB_CA_PATH:-/etc/ssl/cert.pem}
+    volumes:
+      - ./betmylife/backend:/app
+      - ${TIDB_CA_HOST_PATH:-/etc/ssl/cert.pem}:${TIDB_CA_PATH:-/etc/ssl/cert.pem}:ro
+    depends_on: null
+
+  app:
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL}
