@@ -1,6 +1,6 @@
 /**
- * Home pairs a branded daily prediction with the filterable friends feed.
- * Featured votes and feed votes both update the existing local mock state.
+ * Home pairs a branded daily prediction with the filterable challenge feed.
+ * Challenges are loaded from the signed-in user's database records.
  */
 import { BrandAsset } from "@/components/brand-asset";
 import { ChallengeCard } from "@/components/challenge-card";
@@ -79,7 +79,7 @@ function StatTile({
 
 export default function Home() {
   const { state, dispatch } = useAppState();
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const [filter, setFilter] = useState("Public");
   const [category, setCategory] = useState("All");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -98,6 +98,7 @@ export default function Home() {
           type: "replace-challenges",
           challenges: items.map((item) => ({
             id: item.id,
+            ownerId: item.user_id,
             user: "Fuka",
             avatar: "🌷",
             color: c.lavender,
@@ -164,11 +165,11 @@ export default function Home() {
     return date;
   });
   const weekday = (date: Date) =>
-    date.toLocaleDateString(locale === "ja" ? "ja-JP" : "en-US", {
+    date.toLocaleDateString("en-US", {
       weekday: "short",
     });
   const monthLabel = calendarMonth.toLocaleDateString(
-    locale === "ja" ? "ja-JP" : "en-US",
+    "en-US",
     { year: "numeric", month: "long" },
   );
 

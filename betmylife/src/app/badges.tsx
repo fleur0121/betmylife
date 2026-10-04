@@ -20,7 +20,6 @@ export default function BadgesScreen() {
     transactions: state.transactions,
     unlockedBadgeIds: Object.keys(state.badgeUnlocks),
     currentUserId: state.authUserId,
-    currentUserName: "Fuka",
   }), [state]);
   const selected = selectedId ? BADGE_BY_ID[selectedId] : undefined;
   const selectedProgress = progress.find((badge) => badge.id === selectedId);

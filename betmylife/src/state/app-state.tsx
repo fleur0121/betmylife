@@ -1,17 +1,10 @@
 /** Shared app state, persisted after login and reconciled with the badge engine. */
 import { evaluateAchievements, newlyEligibleBadges } from "@/achievements/engine";
 import { BADGE_METADATA, type BadgeId } from "@/achievements/badge-metadata";
-import {
-  challenges,
-  initialCosmetics,
-  initialWallet,
-  rewards,
-  type Challenge,
-  type CosmeticSlot,
-  type Prediction,
-  type PredictionChoice,
-} from "@/mock/data";
-import { friendDirectory, initialFriendIds, myFriendId } from "@/mock/friends";
+import { rewards } from "@/constants/rewards";
+import type { CosmeticSlot } from "@/constants/rewards";
+import type { Challenge, Prediction, PredictionChoice } from "@/mock/data";
+import { friendDirectory, myFriendId } from "@/mock/friends";
 import {
   getPredictionLockAt,
   isChallengeExpired,
@@ -76,17 +69,17 @@ type Action =
 
 export const initialState: State = {
   authUserId: null,
-  friendIds: initialFriendIds,
+  friendIds: [],
   followingIds: [],
-  challenges,
+  challenges: [],
   predictions: {},
   stakedPredictions: {},
-  wallet: initialWallet,
-  pointsBalance: initialWallet,
+  wallet: 0,
+  pointsBalance: 0,
   lifetimePointsEarned: 0,
   transactions: [],
   owned: [],
-  equipped: initialCosmetics,
+  equipped: { Frame: "", Title: "", Badge: "", Background: "" },
   badgeUnlocks: {},
   pendingBadgeClaims: [],
   pendingBadgeToasts: [],
@@ -103,7 +96,6 @@ function toAchievementInput(state: State) {
     transactions: state.transactions,
     unlockedBadgeIds: Object.keys(state.badgeUnlocks),
     currentUserId: state.authUserId,
-    currentUserName: "Fuka",
   };
 }
 
@@ -298,11 +290,18 @@ export function appReducer(state: State, action: Action): State {
         ...state,
         challenges: [{ ...action.challenge, ownerId: state.authUserId ?? undefined, createdAt: action.challenge.createdAt ?? new Date().toISOString() }, ...state.challenges],
       });
-    case "replace-challenges":
-      return finalizeTransition(state, { ...state, challenges: action.challenges });
+    case "replace-challenges": {
+      const previous = new Map(state.challenges.map((challenge) => [challenge.id, challenge]));
+      const challenges = action.challenges.map((challenge) => {
+        const saved = previous.get(challenge.id);
+        return saved ? { ...saved, ...challenge, result: saved.result, pointsSettled: saved.pointsSettled, resolvedAt: saved.resolvedAt, resolvedTimezone: saved.resolvedTimezone, proofMethodsUsed: saved.proofMethodsUsed, aiProofVerified: saved.aiProofVerified } : challenge;
+      });
+      return finalizeTransition(state, { ...state, challenges });
+    }
     case "delete": {
-      const nextChallenges = state.challenges.filter((challenge) => challenge.id !== action.id || challenge.user !== "Fuka");
-      if (nextChallenges.length === state.challenges.length) return state;
+      const challenge = state.challenges.find((item) => item.id === action.id);
+      if (!challenge || !state.authUserId || challenge.ownerId !== state.authUserId) return state;
+      const nextChallenges = state.challenges.filter((item) => item.id !== action.id);
       const predictions = { ...state.predictions };
       delete predictions[action.id];
       const result = voidChallengePredictions(state.stakedPredictions, action.id);

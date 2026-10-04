@@ -35,7 +35,7 @@ import {
     View,
 } from "react-native";
 export default function Create() {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const { state, dispatch } = useAppState();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Study");
@@ -74,6 +74,7 @@ export default function Create() {
     const now = new Date();
     const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
     const key = JSON.stringify([text, timezone, localDate]);
+    if (analysis && analysisContext.current?.key === key) return analysis;
     if (analysisContext.current?.key !== key) {
       analysisContext.current = { key, request: { text, timezone, submitted_at: now.toISOString() } };
     }
@@ -162,7 +163,6 @@ export default function Create() {
         noOdds: "3.13",
         friends: 0,
         visibility,
-        titleJa: locale === "ja" ? title.trim() : undefined,
       },
     });
     setCreated(true);
@@ -257,9 +257,10 @@ export default function Create() {
                   {error}
                 </Text>
               )}
-              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Analyzing…" : "Analyze"} onPress={() => void analyzeInput()} />
+              <Text style={s.caption}>AI suggestions help turn your goal into clear, achievable steps.</Text>
+              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Getting suggestions…" : "Get AI suggestions"} onPress={() => void analyzeInput()} />
               {!!analysisError && <Text accessibilityRole="alert" style={{ color: c.red }}>{analysisError}</Text>}
-              {analysis && <Text style={s.caption}>Analysis complete.</Text>}
+              {analysis && <Text style={s.caption}>AI suggestions</Text>}
               {analysis && [...analysis.data.clarification_questions, ...analysis.data.actions.flatMap((action) => action.clarification_questions)].map((question, index) => (
                 <Text key={`${index}-${question}`} translate={false} style={s.caption}>{question}</Text>
               ))}

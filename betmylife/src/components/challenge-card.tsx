@@ -8,7 +8,6 @@ import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
-import { getChallengeTitle, getJapaneseTitle } from "@/utils/challenge-text";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { Alert, Platform, Pressable, StyleSheet, View } from "react-native";
@@ -18,7 +17,7 @@ import { PredictionPanel } from "./prediction-panel";
 import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { state, dispatch } = useAppState();
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const selected = state.predictions[challenge.id];
   const author = friendDirectory.find(
     (friend) => friend.name === challenge.user,
@@ -105,14 +104,8 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         </View>
       </Pressable>
       <Text translate={false} style={styles.title}>
-        {getChallengeTitle(challenge, locale)}
+        {challenge.title}
       </Text>
-      {getJapaneseTitle(challenge) &&
-        getJapaneseTitle(challenge) !== challenge.title && (
-          <Text translate={false} style={styles.translation}>
-            {locale === "ja" ? challenge.title : getJapaneseTitle(challenge)}
-          </Text>
-        )}
       <View style={styles.forecast}>
         <View style={s.between}>
           <Text style={styles.aiLabel}>✦ AI PREDICTION</Text>
@@ -202,7 +195,6 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   title: { fontSize: 19, lineHeight: 27, fontWeight: "600", color: c.text },
-  translation: { fontSize: 13, lineHeight: 19, color: c.muted },
   forecast: {
     padding: 12,
     borderRadius: 14,

@@ -144,9 +144,9 @@ function progressFor(id: BadgeId, metrics: {
 export function evaluateAchievements(input: AchievementInput, now = new Date()): BadgeProgress[] {
   const deviceTimeZone = input.timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   const ownChallenges = input.challenges.filter((challenge) => {
-    const isOwned = challenge.ownerId
+    const isOwned = input.currentUserId
       ? challenge.ownerId === input.currentUserId
-      : challenge.user === (input.currentUserName ?? "Fuka") && challenge.id !== "read-today";
+      : challenge.user === input.currentUserName && challenge.id !== "read-today";
     return isOwned && !challenge.draft && challenge.status !== "draft";
   });
   const resolved = ownChallenges

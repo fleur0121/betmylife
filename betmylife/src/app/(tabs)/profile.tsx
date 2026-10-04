@@ -1,28 +1,23 @@
 /**
- * Collectible identity page with equipped cosmetics, progress and recent activity.
- * Purchases and equipped items remain connected to the existing local reducer.
+ * Account profile and progress view backed by the signed-in user's database data.
+ * Reward art is a static catalog; ownership, equipped items, and progress come from saved account state.
  */
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { BADGE_BY_ID, BADGES } from "@/achievements/badges";
 import { ChallengeCard } from "@/components/challenge-card";
 import { FeedTabs } from "@/components/feed-tabs";
 import { Text } from "@/components/localized-text";
-import { Button, Card, Screen, SectionHeader, s } from "@/components/ui-kit";
+import { Avatar, Button, Card, Screen, SectionHeader, s } from "@/components/ui-kit";
 import { API_URL } from "@/constants/api";
 import { palette as c } from "@/constants/design";
-import {
-  rewards,
-  currentUser as user,
-  type Challenge,
-  type CosmeticSlot,
-} from "@/mock/data";
-import { myFriendId } from "@/mock/friends";
+import { rewards, type CosmeticSlot } from "@/constants/rewards";
 import { AVATAR_FRAME_ART_SCALE } from "@/components/profile/avatar-frame";
+import { getChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { Image } from "expo-image";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 const futureSelves: { asset: BrandAssetName; label: string; color: string }[] =
@@ -35,10 +30,63 @@ const futureSelves: { asset: BrandAssetName; label: string; color: string }[] =
 
 const profileFrameArtSize = 76 * AVATAR_FRAME_ART_SCALE;
 
+type UserProfile = {
+  id: string;
+  username: string;
+  nickname: string | null;
+  display_name: string;
+  avatar: string;
+  bio: string;
+  points: number;
+  profile_frame: string;
+  badge: string;
+  background: string;
+  custom_title: string;
+};
+
+type ProfileChallenge = {
+  id: string;
+  category: string;
+  confidence: number;
+  result?: string;
+  resolvedAt?: string;
+  title: string;
+  deadline: string;
+  probability: number;
+  ownerId?: string;
+};
+
+function calculatePredictionAccuracy(predictions: { status: string }[]) {
+  const settled = predictions.filter((prediction) => prediction.status === "won" || prediction.status === "lost");
+  if (!settled.length) return null;
+  return Math.round((settled.filter((prediction) => prediction.status === "won").length / settled.length) * 100);
+}
+
+function calculateSuccessStreak(challenges: ProfileChallenge[]) {
+  const days = [...new Set(challenges
+    .filter((challenge) => challenge.result === "success" && challenge.resolvedAt)
+    .map((challenge) => new Date(challenge.resolvedAt!).toLocaleDateString("en-CA")))].sort().reverse();
+  if (!days.length) return 0;
+  let streak = 1;
+  for (let index = 1; index < days.length; index += 1) {
+    const previous = new Date(`${days[index - 1]}T12:00:00`);
+    const current = new Date(`${days[index]}T12:00:00`);
+    if (Math.round((previous.getTime() - current.getTime()) / 86_400_000) !== 1) break;
+    streak += 1;
+  }
+  return streak;
+}
+
 export default function Profile() {
   const { state, dispatch } = useAppState();
   const [tab, setTab] = useState("Overview");
-  const [nickname, setNickname] = useState("");
+  const [profileResult, setProfileResult] = useState<{ userId: string; profile: UserProfile } | null>(null);
+  const [profileFailure, setProfileFailure] = useState<{ userId: string; message: string } | null>(null);
+  const [challengeFailure, setChallengeFailure] = useState<{ userId: string; message: string } | null>(null);
+  const profile = profileResult?.userId === state.authUserId ? profileResult.profile : null;
+  const profileError = profileFailure?.userId === state.authUserId ? profileFailure.message : "";
+  const challengeError = challengeFailure?.userId === state.authUserId ? challengeFailure.message : "";
+  const profileLoading = Boolean(state.authUserId && !profile && !profileError);
   const slots: CosmeticSlot[] = ["Frame", "Title", "Badge", "Background"];
   const owned = rewards.filter((item) => state.owned.includes(item.id));
   const earnedBadgeCount = Object.keys(state.badgeUnlocks).length;
@@ -47,27 +95,88 @@ export default function Profile() {
     .slice(0, 5)
     .map(([id, unlock]) => ({ badge: BADGE_BY_ID[id], unlockedAt: unlock!.unlockedAt }))
     .filter((item) => item.badge);
-  const posts = state.challenges.filter(
-    (challenge) => challenge.user === user.name,
+  const profileName = profile?.nickname || profile?.display_name || profile?.username || "";
+  const posts = state.challenges
+    .filter((challenge) => challenge.ownerId === state.authUserId)
+    .map((challenge) => ({ ...challenge, user: profileName, avatar: profile?.avatar || "☁️" }));
+  const accuracy = calculatePredictionAccuracy(
+    Object.values(state.stakedPredictions).filter((prediction) => prediction.userId === state.authUserId),
   );
-  const activeFrame =
-    rewards.find(
-      (item) => item.slot === "Frame" && item.name === state.equipped.Frame,
-    )?.asset ?? "framePurpleAura";
+  const streak = calculateSuccessStreak(posts);
+  const completedChallenges = posts.filter((challenge) => challenge.result === "success" || challenge.result === "failed").length;
+  const equippedLabels: Record<CosmeticSlot, string> = {
+    Frame: state.equipped.Frame || profile?.profile_frame || "",
+    Badge: state.equipped.Badge || profile?.badge || "",
+    Background: state.equipped.Background || profile?.background || "",
+    Title: state.equipped.Title || profile?.custom_title || "",
+  };
+  const activeFrame = rewards.find(
+    (item) => item.slot === "Frame" && item.name === equippedLabels.Frame,
+  )?.asset;
+  const activeTitle = rewards.find(
+    (item) => item.slot === "Title" && item.name === equippedLabels.Title,
+  );
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     if (!state.authUserId) return;
-    fetch(`${API_URL}/users/${state.authUserId}/profile`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((profile) => {
-        if (profile?.nickname || profile?.display_name) {
-          setNickname(profile.nickname ?? profile.display_name);
+    const userId = state.authUserId;
+    let active = true;
+    const profileRequest = fetch(`${API_URL}/users/${userId}/profile`).then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => null) as { detail?: string } | null;
+          throw new Error(body?.detail ?? `Profile could not be loaded (${response.status}).`);
         }
-      })
-      .catch(() => {
-        // Keep the demo fallback if the profile API is temporarily unavailable.
+        return response.json() as Promise<UserProfile>;
       });
-  }, [state.authUserId]);
+    void Promise.allSettled([profileRequest, getChallenges(userId)]).then(([profileResult, challengesResult]) => {
+      if (!active) return;
+      if (profileResult.status === "fulfilled") {
+        setProfileResult({ userId, profile: profileResult.value });
+        setProfileFailure(null);
+      } else {
+        setProfileFailure({ userId, message: profileResult.reason instanceof Error ? profileResult.reason.message : "Profile could not be loaded." });
+      }
+      if (challengesResult.status === "fulfilled") {
+        setChallengeFailure(null);
+        dispatch({
+          type: "replace-challenges",
+          challenges: challengesResult.value.map((item) => ({
+          id: item.id,
+          ownerId: item.user_id,
+          user: "You",
+          avatar: "☁️",
+          color: c.lavender,
+          title: item.title,
+          category: item.category,
+          difficulty: item.difficulty,
+          confidence: item.confidence,
+          deadline: item.deadline_label,
+          deadlineAt: item.deadline_at,
+          probability: item.probability,
+          yesOdds: item.yes_odds.toFixed(2),
+          noOdds: item.no_odds.toFixed(2),
+          friends: 0,
+          visibility: item.visibility,
+          proofPlan: item.proof_plan ?? undefined,
+          })),
+        });
+      } else {
+        setChallengeFailure({ userId, message: challengesResult.reason instanceof Error ? challengesResult.reason.message : "Your challenges could not be loaded." });
+      }
+    });
+    return () => { active = false; };
+  }, [dispatch, state.authUserId]));
+
+  if (!state.authUserId) {
+    return (
+      <Screen title="Your profile">
+        <Card>
+          <Text style={s.sectionTitle}>Log in to view your profile</Text>
+          <Button label="Log in" onPress={() => router.push("/auth")} />
+        </Card>
+      </Screen>
+    );
+  }
 
   return (
     <Screen title="Your profile">
@@ -83,13 +192,9 @@ export default function Profile() {
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
               <View style={styles.avatarCircle}>
-                <BrandAsset
-                  name="mascotCheerful"
-                  style={styles.avatarMascot}
-                  label="Fuka avatar"
-                />
+                <Avatar emoji={profile?.avatar || "☁️"} color={c.sky} size={76} />
               </View>
-              <BrandAsset name={activeFrame} style={styles.avatarFrame} />
+              {activeFrame && <BrandAsset name={activeFrame} style={styles.avatarFrame} />}
             </View>
             <Pressable
               accessibilityRole="button"
@@ -103,17 +208,16 @@ export default function Profile() {
             </Pressable>
           </View>
           <Text translate={false} style={styles.name}>
-            {nickname || "Loading…"}
-            <Text style={styles.verified}> ✦</Text>
+            {profileLoading ? "Loading profile…" : profile?.nickname || profile?.display_name || profile?.username || "Profile"}
           </Text>
           <Text translate={false} style={styles.handle}>
-            @{myFriendId} · making little promises, keeping big dreams
+            @{profile?.username ?? ""}{profile?.bio ? ` · ${profile.bio}` : ""}
           </Text>
           <View style={styles.titleLine}>
-            <BrandAsset name="badgeAiSlayer" style={styles.titleArt} />
+            <BrandAsset name={activeTitle?.asset ?? "iconTrophy"} style={styles.titleArt} />
             <View style={styles.titleInfo}>
               <Text style={styles.titleLabel}>EQUIPPED TITLE</Text>
-              <Text style={styles.titleValue}>{state.equipped.Title}</Text>
+              <Text style={styles.titleValue}>{equippedLabels.Title || (profileLoading ? "Loading…" : "Not equipped")}</Text>
             </View>
             <View style={styles.badgeCount}>
               <Text style={styles.badgeCountValue}>{earnedBadgeCount}/{BADGES.length}</Text>
@@ -126,30 +230,31 @@ export default function Profile() {
       <View style={styles.statsRow}>
         <StatTile
           asset="iconPoints"
-          value={state.wallet.toLocaleString()}
+          value={(profile?.points ?? 0).toLocaleString()}
           label="POINTS"
           color={c.cream}
         />
         <StatTile
           asset="iconConfidence"
-          value={`${user.accuracy}%`}
+          value={accuracy === null ? "—" : `${accuracy}%`}
           label="ACCURACY"
           color={c.lavender}
         />
         <StatTile
           asset="iconStreak"
-          value={`${user.streak}`}
+          value={`${streak}`}
           label="DAY STREAK"
           color={c.peach}
         />
         <StatTile
           asset="iconChallenge"
-          value={`${user.completed}`}
+          value={`${completedChallenges}`}
           label="CHALLENGES"
           color={c.mint}
         />
       </View>
 
+      {!!profileError && <Text accessibilityRole="alert" style={{ color: c.red }}>{profileError}</Text>}
       <FeedTabs
         options={["Overview", "My challenges"]}
         value={tab}
@@ -163,7 +268,7 @@ export default function Profile() {
           {!posts.length && (
             <Card>
               <BrandAsset name="stateNoChallenges" style={styles.emptyArt} />
-              <Text style={s.muted}>No challenges here yet</Text>
+              <Text style={s.muted}>{challengeError || "No challenges here yet"}</Text>
               <Button
                 label="Post a challenge"
                 onPress={() => router.push("/create")}
@@ -182,7 +287,7 @@ export default function Profile() {
               <View>
                 <Text style={styles.journeyEyebrow}>YOUR JOURNEY</Text>
                 <Text style={styles.journeyTitle}>
-                  {user.completed} little wins, so far
+                  {completedChallenges} little wins, so far
                 </Text>
               </View>
               <BrandAsset
@@ -243,10 +348,7 @@ export default function Profile() {
                       size={12}
                       tintColor={c.primaryDark}
                     />
-                    <BrandAsset
-                      name={activeFrame}
-                      style={styles.framePreviewImage}
-                    />
+                    {activeFrame && <BrandAsset name={activeFrame} style={styles.framePreviewImage} />}
                   </View>
                 ) : (
                   <BrandAsset
@@ -262,7 +364,7 @@ export default function Profile() {
                 )}
                 <Text style={styles.styleSlot}>{slot}</Text>
                 <Text numberOfLines={1} style={styles.styleValue}>
-                  {state.equipped[slot]}
+                  {equippedLabels[slot] || (profileLoading ? "Loading…" : "Not equipped")}
                 </Text>
               </View>
             ))}
@@ -365,7 +467,7 @@ function RecentChallengeRow({
   challenge,
   onPress,
 }: {
-  challenge: Challenge;
+  challenge: ProfileChallenge;
   onPress: () => void;
 }) {
   const categoryAsset: BrandAssetName =
@@ -499,7 +601,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarMascot: { width: 82, height: 79 },
   avatarFrame: {
     position: "absolute",
     width: profileFrameArtSize,
@@ -522,7 +623,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: -0.8,
   },
-  verified: { color: c.primary, fontSize: 16 },
   handle: { marginTop: 1, color: c.muted, fontSize: 10, lineHeight: 16 },
   titleLine: {
     flexDirection: "row",
