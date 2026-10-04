@@ -2,7 +2,7 @@
  * Collectible identity page with equipped cosmetics, progress and recent activity.
  * Purchases and equipped items remain connected to the existing local reducer.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/localized-text";
@@ -14,6 +14,7 @@ import { currentUser as user, rewards, type CosmeticSlot } from "@/mock/data";
 import { myFriendId } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { palette as c } from "@/constants/design";
+import { API_URL } from "@/constants/api";
 
 const futureSelves: { asset: BrandAssetName; label: string; color: string }[] = [
   { asset: "mascotReading", label: "FOCUSED YOU", color: c.sky },
@@ -39,10 +40,25 @@ const badges: { asset: BrandAssetName; label: string }[] = [
 export default function Profile() {
   const { state, dispatch } = useAppState();
   const [tab, setTab] = useState("Overview");
+  const [nickname, setNickname] = useState("");
   const slots: CosmeticSlot[] = ["Frame", "Title", "Badge", "Background"];
   const owned = rewards.filter((item) => state.owned.includes(item.id));
   const posts = state.challenges.filter((challenge) => challenge.user === user.name);
   const activeFrame = profileFrames[state.equipped.Frame] ?? "framePurpleAura";
+
+  useEffect(() => {
+    if (!state.authUserId) return;
+    fetch(`${API_URL}/users/${state.authUserId}/profile`)
+      .then((response) => response.ok ? response.json() : null)
+      .then((profile) => {
+        if (profile?.nickname || profile?.display_name) {
+          setNickname(profile.nickname ?? profile.display_name);
+        }
+      })
+      .catch(() => {
+        // Keep the demo fallback if the profile API is temporarily unavailable.
+      });
+  }, [state.authUserId]);
 
   return (
     <Screen title="Your profile">
@@ -63,7 +79,7 @@ export default function Profile() {
               <Text style={styles.friendsButtonText}>＋  Add friends</Text>
             </Pressable>
           </View>
-          <Text translate={false} style={styles.name}>{user.name}<Text style={styles.verified}> ✦</Text></Text>
+          <Text translate={false} style={styles.name}>{nickname || "Loading…"}<Text style={styles.verified}> ✦</Text></Text>
           <Text translate={false} style={styles.handle}>@{myFriendId} · making little promises, keeping big dreams</Text>
           <View style={styles.titleLine}>
             <BrandAsset name="badgeAiSlayer" style={styles.titleArt} />
