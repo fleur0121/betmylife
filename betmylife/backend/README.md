@@ -1,8 +1,7 @@
 # Backend
 
-For local Docker development with MySQL, use `docker compose up --build` from
-the repository root. To use TiDB Cloud from the API container, use the
-`docker-compose.tidb.yml` override described below.
+Docker is configured to use TiDB Cloud as the only database. No local MySQL
+container is started.
 
 ## Docker + TiDB Cloud
 
@@ -11,19 +10,14 @@ Run this from the repository root. The command reads the existing
 files:
 
 ```sh
-docker compose \
-  --env-file betmylife/backend/.env \
-  -f docker-compose.yml \
-  -f docker-compose.tidb.yml \
-  up --build
+docker compose up --build api
 ```
 
 For iOS physical-device testing, set the Mac LAN address before starting:
 
 ```sh
 EXPO_PUBLIC_API_URL=http://172.16.194.231:8000 \
-docker compose --env-file betmylife/backend/.env \
-  -f docker-compose.yml -f docker-compose.tidb.yml up --build
+docker compose up --build api
 ```
 
 The iPhone and Mac must be on the same Wi-Fi network. The CA path in

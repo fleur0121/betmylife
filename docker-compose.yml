@@ -1,39 +1,10 @@
 services:
-  db:
-    image: mysql:8.4
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-predict_my_life}
-      MYSQL_USER: ${MYSQL_USER:-betmylife}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-betmylife_dev}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_dev_only}
-    volumes:
-      - betmylife-db:/var/lib/mysql
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-      start_period: 20s
-
   api:
     build:
       context: ./betmylife/backend
     restart: unless-stopped
-    environment:
-      TIDB_HOST: db
-      TIDB_PORT: 3306
-      TIDB_USER: ${MYSQL_USER:-betmylife}
-      TIDB_PASSWORD: ${MYSQL_PASSWORD:-betmylife_dev}
-      TIDB_DATABASE: ${MYSQL_DATABASE:-predict_my_life}
-      TIDB_CA_PATH: ""
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081,http://127.0.0.1:8081}
+    env_file:
+      - ./betmylife/backend/.env
     ports:
       - "${API_PORT:-8000}:8000"
     healthcheck:
@@ -50,20 +21,15 @@ services:
       start_period: 10s
     volumes:
       - ./betmylife/backend:/app
-    depends_on:
-      db:
-        condition: service_healthy
-    command:
-      - sh
-      - -c
-      - python -c "from db import init_db; init_db()" && exec uvicorn main:app --reload --host 0.0.0.0 --port 8000
+      - /etc/ssl/cert.pem:/etc/ssl/cert.pem:ro
+    command: sh -c "python -c 'from db import init_db; init_db()' && exec uvicorn main:app --host 0.0.0.0 --port 8000"
 
   app:
     build:
       context: ./betmylife
     restart: unless-stopped
     environment:
-      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8000}
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://172.16.194.231:8000}
       REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-localhost}
       CHOKIDAR_USEPOLLING: "true"
     ports:
@@ -71,9 +37,3 @@ services:
     volumes:
       - ./betmylife/src:/app/src
       - ./betmylife/assets:/app/assets
-    depends_on:
-      api:
-        condition: service_healthy
-
-volumes:
-  betmylife-db:
