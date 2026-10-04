@@ -111,6 +111,20 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
       <View style={[styles.ownPanel, panelStyle]}>
         <Text style={styles.ownEyebrow}>YOUR CHALLENGE</Text>
         <Text style={styles.ownCopy}>Friends can predict how you’ll do.</Text>
+        <View style={styles.ownOdds}>
+          <Text style={styles.ownOddsHeading}>YOUR CHALLENGE ODDS</Text>
+          <View style={styles.ownOddsRow}>
+            <View style={styles.ownOddsItem}>
+              <Text style={styles.ownOddsYesLabel}>YES</Text>
+              <Text style={styles.ownOddsValue}>×{Number(challenge.yesOdds).toFixed(2)}</Text>
+            </View>
+            <View style={styles.ownOddsDivider} />
+            <View style={styles.ownOddsItem}>
+              <Text style={styles.ownOddsNoLabel}>NO</Text>
+              <Text style={styles.ownOddsValue}>×{Number(challenge.noOdds).toFixed(2)}</Text>
+            </View>
+          </View>
+        </View>
       </View>
     );
   }
@@ -240,7 +254,7 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
               <View style={styles.sheetHero}>
                 <View style={styles.sheetTitleWrap}>
                   <Text style={styles.sheetEyebrow}>{editing ? "TUNE YOUR CALL ✦" : "LOCK IT IN ✦"}</Text>
-                  <Text style={styles.sheetTitle}>PUT YOUR POINTS{ "\n" }WHERE YOUR PREDICTION IS</Text>
+                  <Text style={styles.sheetTitle}>PUT YOUR POINTS{"\n"}WHERE YOUR PREDICTION IS</Text>
                 </View>
                 <BrandAsset name="mascotPrediction" style={styles.sheetMascot} />
                 <BrandAsset name="decoSparkleBlue" style={styles.sheetSparkle} />
@@ -367,6 +381,14 @@ const styles = StyleSheet.create({
   featuredHint: { color: "#DCE7FF" },
   disabled: { opacity: 0.55 },
   ownPanel: { padding: 12, borderRadius: 16, backgroundColor: c.lavenderLight },
+  ownOdds: { marginTop: 11, paddingTop: 9, borderTopWidth: 1, borderTopColor: c.lavender },
+  ownOddsHeading: { color: c.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
+  ownOddsRow: { flexDirection: "row", alignItems: "center", marginTop: 7 },
+  ownOddsItem: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 3 },
+  ownOddsDivider: { width: 1, height: 22, marginHorizontal: 10, backgroundColor: c.lavender },
+  ownOddsYesLabel: { color: c.green, fontSize: 10, fontWeight: "900" },
+  ownOddsNoLabel: { color: c.coral, fontSize: 10, fontWeight: "900" },
+  ownOddsValue: { color: c.text, fontSize: 15, fontWeight: "900" },
   feedPanel: {},
   featuredPanel: { marginTop: 9, backgroundColor: "rgba(255,255,255,0.96)" },
   ownEyebrow: { color: c.primaryDark, fontSize: 10, fontWeight: "900", letterSpacing: 0.8 },

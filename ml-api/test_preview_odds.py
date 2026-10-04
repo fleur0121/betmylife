@@ -1,9 +1,16 @@
+import io
+import sys
 import unittest
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import patch
+from contextlib import redirect_stdout
 
 import pandas as pd
+import numpy as np
 
 from history_features import stats_for_subset
+import preview_odds
 from preview_odds import general_category_supported, local_challenge_date
 from train_personal import (
     FEATURES,
@@ -129,6 +136,53 @@ class CategorySupportTests(unittest.TestCase):
         self.assertFalse(general_category_supported("learning", known_categories))
         self.assertFalse(general_category_supported("Fitness", known_categories))
         self.assertFalse(general_category_supported("walking", known_categories))
+
+
+class DbModeCsvIndependenceTests(unittest.TestCase):
+    def test_db_mode_runs_when_training_csv_is_missing(self):
+        history = pd.DataFrame(
+            [{
+                "date": pd.Timestamp("2026-10-01"),
+                "category": "exercise",
+                "target_hour": 22,
+                "weather": None,
+                "hours_until_deadline": 24,
+                "success": 1,
+                "day_of_week": 3,
+            }]
+        )
+
+        class GeneralModel:
+            def predict_proba(self, _features):
+                return np.array([[0.4, 0.6]])
+
+        bundle = {
+            "known_categories": ["exercise", "sleep", "steps"],
+            "features": ["category", "day_of_week", "is_weekend", "target_hour"],
+            "model": GeneralModel(),
+        }
+        output = io.StringIO()
+        argv = [
+            "preview_odds.py",
+            "--user-id", "app-user-uuid",
+            "--category", "exercise",
+            "--target-hour", "22",
+            "--day-of-week", "3",
+            "--as-of", "2026-10-04",
+        ]
+
+        with (
+            patch.object(preview_odds, "load_db_history", return_value=history),
+            patch.object(preview_odds.joblib, "load", return_value=bundle),
+            patch.object(preview_odds.pd, "read_csv") as read_csv,
+            patch.object(sys, "argv", argv),
+            redirect_stdout(output),
+        ):
+            preview_odds.main()
+
+        read_csv.assert_not_called()
+        self.assertIn("personal_history_rows=1", output.getvalue())
+        self.assertIn("ODDS_BASE p_success=66.7%", output.getvalue())
 
 
 if __name__ == "__main__":

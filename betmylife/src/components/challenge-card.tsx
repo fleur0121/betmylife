@@ -123,7 +123,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           <Text style={s.caption}>
             Their confidence {challenge.confidence}%
           </Text>
-          <Text style={s.caption}>Mock estimate</Text>
+          <Text style={s.caption}>Model estimate</Text>
         </View>
       </View>
       <View style={styles.voteLabel}>

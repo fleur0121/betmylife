@@ -1,13 +1,12 @@
 # ML API
 
 `preview_odds.py` uses the trained General model and reads a user's Personal
-history from the application database by default. General training data remains
-the Fitbit CSV; app observations are used only for the requested user's history.
+history from the application database. The General `.pkl` model and DB
+observations are sufficient; the CLI does not read CSV files.
 
 ```sh
 cd ml-api
 .venv/bin/python preview_odds.py \
-  --history-source db \
   --user-id <app-user-id> \
   --category exercise \
   --day-of-week 6 \
@@ -26,8 +25,10 @@ use a neutral General prior; do not guess that `walking` means Fitbit `steps`.
 Matching Personal observations can still personalize an unsupported category
 around that neutral prior.
 
-For an explicit Fitbit-user CSV comparison, pass `--history-source csv` and a
-Fitbit `--user-id`.
+General retraining reads `fitbit`/`atus` observations from the DB; Personal
+retraining reads `fitbit`/`atus`/`app` observations. CSV files are only needed by
+the ingestion/preparation tools when importing new source data; after import,
+the source CSVs can be removed without blocking odds previews or model retraining.
 
 ## App odds service
 

@@ -1,20 +1,16 @@
 from pathlib import Path
 
 import joblib
-import pandas as pd
 
 from sklearn.compose import make_column_transformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+from db_data import load_observations
+
 
 ROOT = Path(__file__).parent
-DATA_DIR = ROOT.parent / "data"
-
-FITBIT_FILE = DATA_DIR / "fitbit_challenges.csv"
-ATUS_FILE = DATA_DIR / "atus_challenges.csv"
-
 MODEL_FILE = ROOT / "general_model.pkl"
 
 
@@ -34,31 +30,7 @@ FEATURES = CAT_FEATURES + NUM_FEATURES
 
 
 def load_data():
-    frames = []
-
-    if FITBIT_FILE.exists():
-        fitbit = pd.read_csv(
-            FITBIT_FILE,
-            dtype={"user_id": str},
-        )
-        frames.append(fitbit)
-
-    if ATUS_FILE.exists():
-        atus = pd.read_csv(
-            ATUS_FILE,
-            dtype={"user_id": str},
-        )
-        frames.append(atus)
-
-    if not frames:
-        raise FileNotFoundError(
-            "No challenge data found."
-        )
-
-    return pd.concat(
-        frames,
-        ignore_index=True,
-    )
+    return load_observations(("fitbit", "atus"))
 
 
 def make_model():

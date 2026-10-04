@@ -15,6 +15,7 @@ from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from db_data import load_observations
 from history_features import (
     build_history_features,
     time_bucket,
@@ -22,10 +23,8 @@ from history_features import (
 
 
 ROOT = Path(__file__).parent
-DATA_DIR = ROOT.parent / "data"
 
-DATA_FILE = DATA_DIR / "fitbit_challenges.csv"
-TRAINING_FILE = DATA_DIR / "personal_training.csv"
+TRAINING_FILE = ROOT / "personal_training.csv"
 MODEL_FILE = ROOT / "personal_model.pkl"
 
 
@@ -243,6 +242,10 @@ def personal_features_for_challenge(history, challenge, population):
         general_priors=general_priors,
     )
     return features, general_priors
+
+
+def load_data():
+    return load_observations(("fitbit", "atus", "app"))
 
 
 def build_training_data(df):
@@ -469,7 +472,7 @@ def main():
         "Building personalized training data..."
     )
 
-    df = pd.read_csv(DATA_FILE)
+    df = load_data()
 
     training = build_training_data(df)
 

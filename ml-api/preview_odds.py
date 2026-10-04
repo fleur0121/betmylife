@@ -10,34 +10,30 @@ import pandas as pd
 import pymysql
 from dotenv import load_dotenv
 
-from history_features import PRIOR_STRENGTH, stats_for_subset
-from train_personal import personal_features_for_challenge
+from history_features import (
+    PRIOR_STRENGTH,
+    current_streak,
+    stats_for_subset,
+    time_bucket,
+)
 
 
 ROOT = Path(__file__).parent
-DATA_FILE = ROOT.parent / "data" / "fitbit_challenges.csv"
 ENV_FILE = ROOT.parent / "betmylife" / "backend" / ".env"
 GENERAL_MODEL_FILE = ROOT / "general_model.pkl"
-PERSONAL_MODEL_FILE = ROOT / "personal_model.pkl"
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
-            "Preview General and Personal success probabilities "
-            "and fair decimal odds from local Fitbit history."
+            "Preview General and user-history success probabilities "
+            "and fair decimal odds."
         )
     )
     parser.add_argument("--category", default="exercise")
     parser.add_argument("--target-hour", type=int, default=22, choices=range(24))
     parser.add_argument("--day-of-week", type=int, choices=range(7))
     parser.add_argument("--user-id")
-    parser.add_argument(
-        "--history-source",
-        choices=("db", "csv"),
-        default="db",
-        help="Personal history source. General training data always comes from Fitbit CSV.",
-    )
     parser.add_argument("--as-of", default=date.today().isoformat())
     return parser.parse_args()
 
@@ -191,42 +187,19 @@ def main():
     except ValueError as error:
         raise SystemExit("--as-of must be a valid date such as 2026-10-04") from error
 
-    if not DATA_FILE.exists():
-        raise SystemExit(f"Training data not found: {DATA_FILE}")
-    if args.history_source == "db" and not args.user_id:
-        raise SystemExit("--user-id is required when --history-source=db")
-
-    data = pd.read_csv(DATA_FILE, dtype={"user_id": str})
-    data["date"] = pd.to_datetime(data["date"])
-    eligible_data = data[data["date"] < as_of].copy()
+    if not args.user_id:
+        raise SystemExit("--user-id is required")
 
     general_bundle = joblib.load(GENERAL_MODEL_FILE)
-    personal_bundle = joblib.load(PERSONAL_MODEL_FILE)
     known_categories = general_bundle["known_categories"]
-    if args.history_source == "db":
-        user_id = args.user_id
-        history = load_db_history(user_id, as_of)
-        population = eligible_data
-    else:
-        if eligible_data.empty:
-            raise SystemExit("No historical rows exist before the selected --as-of date.")
-        user_id = args.user_id or eligible_data.groupby("user_id").size().idxmax()
-        history = eligible_data[eligible_data["user_id"] == user_id].copy()
-        population = eligible_data[eligible_data["user_id"] != user_id].copy()
+    user_id = args.user_id
+    history = load_db_history(user_id, as_of)
 
     day_of_week = (
         args.day_of_week
         if args.day_of_week is not None
         else as_of.dayofweek
     )
-    challenge = {
-        "category": args.category,
-        "day_of_week": day_of_week,
-        "target_hour": args.target_hour,
-        "weather": None,
-        "hours_until_deadline": None,
-    }
-
     general_input = pd.DataFrame(
         [
             {
@@ -248,25 +221,10 @@ def main():
         else 0.5
     )
 
-    if population.empty:
-        raise SystemExit("General training population is empty; cannot build Personal features.")
-    features, priors = personal_features_for_challenge(
-        history=history,
-        challenge=challenge,
-        population=population,
-    )
-    category_rate = float(priors["behavior"])
     matching_history = history[history["category"] == args.category]
     matching_attempts = len(matching_history)
     matching_successes = int(matching_history["success"].sum())
-
-    personal_input = pd.DataFrame(
-        [{name: features[name] for name in personal_bundle["features"]}],
-        columns=personal_bundle["features"],
-    )
-
-    personal_probability = personal_bundle["model"].predict_proba(personal_input)[0, 1]
-    blended_success_probability, personal_support = stats_for_subset(
+    blended_success_probability, matching_attempts = stats_for_subset(
         matching_history,
         general_probability,
     )
@@ -274,7 +232,7 @@ def main():
         blended_success_probability
     )
 
-    print(f"LOCAL ODDS PREVIEW (Personal history: {args.history_source.upper()})")
+    print("ODDS PREVIEW (Personal history: DB)")
     print(f"as_of={as_of.date()} user_id={user_id}")
     print(
         f"challenge: category={args.category}, day_of_week={day_of_week}, "
@@ -283,19 +241,22 @@ def main():
     print(f"personal_history_rows={len(history)}")
     print(
         f"matching_history: successes={matching_successes}, "
-        f"behavior_attempts={matching_attempts}, "
-        f"time_attempts={features['time_attempts']}, "
-        f"day_attempts={features['day_attempts']}, "
-        f"streak={features['current_streak']}"
+        f"behavior_attempts={matching_attempts}"
     )
+    if "target_hour" in history.columns:
+        matching_time = history[
+            history["target_hour"].apply(time_bucket)
+            == time_bucket(args.target_hour)
+        ]
+        print(f"matching_time_attempts={len(matching_time)}")
+    if "day_of_week" in history.columns:
+        matching_day = history[history["day_of_week"] == day_of_week]
+        print(f"matching_day_attempts={len(matching_day)}")
+    print(f"current_streak={current_streak(history)}")
     print()
     print(
         f"general_model_prior={general_probability:.1%} "
-        f"general_category_supported={has_general_category} "
-        f"category_rate_diagnostic={category_rate:.1%}"
-    )
-    print(
-        f"personal_model_context_p={personal_probability:.1%} (diagnostic only)"
+        f"general_category_supported={has_general_category}"
     )
     print(
         "odds blend: (personal_successes + "
