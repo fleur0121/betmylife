@@ -20,10 +20,11 @@ import type { Category, VerificationPlan, Visibility } from "@/mock/data";
 import { demoCapabilities, getFallbackProofPlan } from "@/utils/fallback-proof-plan";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { generateProofPlan } from "@/services/proof-service";
+import { analyzeChallenge, type ChallengeNlpRequest, type ChallengeNlpResult } from "@/services/challenge-nlp";
 import { CHALLENGE_POINT_RULES } from "@/utils/points";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -50,6 +51,43 @@ export default function Create() {
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState("");
   const [showPointsGuide, setShowPointsGuide] = useState(false);
+  const [analysis, setAnalysis] = useState<ChallengeNlpResult | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
+  const analysisContext = useRef<{ key: string; request: ChallengeNlpRequest } | null>(null);
+  const currentTitle = useRef(title);
+  const analysisInFlight = useRef(false);
+
+  async function analyzeInput() {
+    if (analysisInFlight.current || !title.trim()) return;
+    const text = title;
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timezone) {
+      setAnalysisError("Your timezone could not be determined.");
+      return;
+    }
+    const now = new Date();
+    const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
+    const key = JSON.stringify([text, timezone, localDate]);
+    if (analysisContext.current?.key !== key) {
+      analysisContext.current = { key, request: { text, timezone, submitted_at: now.toISOString() } };
+    }
+    currentTitle.current = text;
+    analysisInFlight.current = true;
+    setAnalyzing(true);
+    setAnalysisError("");
+    setAnalysis(null);
+    try {
+      const result = await analyzeChallenge(analysisContext.current.request);
+      console.log("[challenge-nlp] analyzed", JSON.stringify(result, null, 2));
+      if (currentTitle.current === text) setAnalysis(result);
+    } catch (error) {
+      if (currentTitle.current === text) setAnalysisError(error instanceof Error ? error.message : "Analysis failed. Please try again.");
+    } finally {
+      analysisInFlight.current = false;
+      setAnalyzing(false);
+    }
+  }
 
   function getResolvedDeadline() {
     if (deadline !== "Custom") {
@@ -96,10 +134,12 @@ export default function Create() {
     }
   }
 
-  function createChallenge() {
-    if (!proofPlan) return;
+  async function createChallenge() {
+    if (!proofPlan || analysisInFlight.current) return;
     const resolvedDeadline = getResolvedDeadline();
     if (!resolvedDeadline) return;
+    // Posting explicitly triggers analysis; failures are shown but do not discard the post.
+    await analyzeInput();
     dispatch({
       type: "create",
       challenge: {
@@ -124,6 +164,9 @@ export default function Create() {
     });
     setCreated(true);
     setTitle("");
+    currentTitle.current = "";
+    setAnalysis(null);
+    analysisContext.current = null;
     setError("");
     setProofPlan(null);
   }
@@ -147,6 +190,7 @@ export default function Create() {
               Your challenge is live in the mock feed. Let your friends believe
               in you.
             </Text>
+            {!!analysisError && <Text accessibilityRole="alert" translate={false} style={{ color: c.red }}>Your challenge was posted, but analysis failed: {analysisError}</Text>}
             <Button
               label="See my challenge →"
               onPress={() => {
@@ -173,22 +217,33 @@ export default function Create() {
                 </View>
               </View>
               <TextInput
+                editable={!analyzing}
                 accessibilityLabel={t("Challenge title")}
                 placeholder={t("e.g. Read for 20 minutes")}
                 placeholderTextColor={c.muted}
                 value={title}
                 onChangeText={(text) => {
+                  currentTitle.current = text;
                   setTitle(text);
+                  setAnalysis(null);
+                  setAnalysisError("");
+                  analysisContext.current = null;
                   setError("");
                   setProofPlan(null);
                 }}
-                maxLength={100}
+                maxLength={1000}
                 multiline
                 style={styles.input}
               />
               <Text style={[s.caption, { textAlign: "right" }]}>
-                {title.length}/100
+                {title.length}/1000
               </Text>
+              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Analyzing…" : "Analyze"} onPress={() => void analyzeInput()} />
+              {!!analysisError && <Text accessibilityRole="alert" style={{ color: c.red }}>{analysisError}</Text>}
+              {analysis && <Text style={s.caption}>Analysis complete.</Text>}
+              {analysis && [...analysis.data.clarification_questions, ...analysis.data.actions.flatMap((action) => action.clarification_questions)].map((question, index) => (
+                <Text key={`${index}-${question}`} translate={false} style={s.caption}>{question}</Text>
+              ))}
               {!!error && (
                 <Text accessibilityRole="alert" style={{ color: c.red }}>
                   {error}
@@ -362,10 +417,10 @@ export default function Create() {
                 {proofError}
               </Text>
             )}
-            {proofPlan && !proofLoading && (
+            {proofPlan && !proofLoading && !analyzing && (
               <ProofPlanCard
                 plan={proofPlan}
-                onConfirm={createChallenge}
+                onConfirm={() => void createChallenge()}
                 onChangePlan={setProofPlan}
               />
             )}

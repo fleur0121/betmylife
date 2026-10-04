@@ -1,0 +1,342 @@
+{
+  "version": "1.0",
+  "entries": [
+    {
+      "category": "sleep",
+      "subcategory": "bedtime",
+      "meaning": "Getting into bed",
+      "expressions": [
+        "go to bed",
+        "get into bed",
+        "turn in"
+      ],
+      "inclusion": "Entering bed, including a time-in-bed interval",
+      "exclusion": "Falling asleep; waking; leaving bed"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "sleep_onset",
+      "meaning": "Falling asleep",
+      "expressions": [
+        "fall asleep",
+        "drift off",
+        "be asleep"
+      ],
+      "inclusion": "Explicit onset of actual sleep",
+      "exclusion": "Getting into bed; ambiguous 'sleep by'"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "wake_up",
+      "meaning": "Waking up",
+      "expressions": [
+        "wake up",
+        "awaken",
+        "stop sleeping"
+      ],
+      "inclusion": "Becoming awake",
+      "exclusion": "Leaving bed"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "get_out_of_bed",
+      "meaning": "Leaving bed",
+      "expressions": [
+        "get out of bed",
+        "leave bed",
+        "get up from bed"
+      ],
+      "inclusion": "Physically leaving bed",
+      "exclusion": "Waking alone; ambiguous 'get up'"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "duration",
+      "meaning": "Time spent asleep",
+      "expressions": [
+        "sleep for",
+        "get seven hours of sleep"
+      ],
+      "inclusion": "Actual sleep amount",
+      "exclusion": "Time spent in bed; naps with explicit nap action"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "regularity",
+      "meaning": "Consistency of sleep or wake times",
+      "expressions": [
+        "consistent bedtime",
+        "same wake time",
+        "regular sleep schedule"
+      ],
+      "inclusion": "Consistency or variability is the goal",
+      "exclusion": "Ordinary daily frequency attached to bedtime"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "nap",
+      "meaning": "Daytime sleep",
+      "expressions": [
+        "take a nap",
+        "power nap",
+        "daytime sleep"
+      ],
+      "inclusion": "Explicit nap action",
+      "exclusion": "Night sleep; lying down without sleep"
+    },
+    {
+      "category": "sleep",
+      "subcategory": "pre_sleep_routine",
+      "meaning": "Preparation directly related to sleep",
+      "expressions": [
+        "wind down",
+        "bedtime routine",
+        "switch off screens to prepare for sleep"
+      ],
+      "inclusion": "Explicit sleep preparation purpose",
+      "exclusion": "Reading or stretching merely occurring before bed"
+    },
+    {
+      "category": "exercise",
+      "subcategory": "walking",
+      "meaning": "Walking",
+      "expressions": [
+        "walk",
+        "take a stroll",
+        "walk 5000 steps"
+      ],
+      "inclusion": "Walking action",
+      "exclusion": "Running; generic exercise"
+    },
+    {
+      "category": "exercise",
+      "subcategory": "running",
+      "meaning": "Running",
+      "expressions": [
+        "run",
+        "jog",
+        "go for a run"
+      ],
+      "inclusion": "Running or jogging",
+      "exclusion": "Walking; running software"
+    },
+    {
+      "category": "exercise",
+      "subcategory": "strength_training",
+      "meaning": "Resistance or bodyweight exercise",
+      "expressions": [
+        "lift weights",
+        "push-ups",
+        "squats"
+      ],
+      "inclusion": "Explicit strength exercise",
+      "exclusion": "Generic workout with unknown exercise"
+    },
+    {
+      "category": "exercise",
+      "subcategory": "stretching",
+      "meaning": "Stretching",
+      "expressions": [
+        "stretch",
+        "do stretches"
+      ],
+      "inclusion": "Stretching action",
+      "exclusion": "Unknown yoga or exercise type"
+    },
+    {
+      "category": "learning",
+      "subcategory": "language_learning",
+      "meaning": "Language study or practice",
+      "expressions": [
+        "study French",
+        "practice English",
+        "learn Spanish"
+      ],
+      "inclusion": "Language is the subject",
+      "exclusion": "Unspecified study; programming languages"
+    },
+    {
+      "category": "learning",
+      "subcategory": "exam_preparation",
+      "meaning": "Studying for an exam",
+      "expressions": [
+        "revise for an exam",
+        "prepare for a test"
+      ],
+      "inclusion": "Explicit exam purpose",
+      "exclusion": "Unspecified study"
+    },
+    {
+      "category": "learning",
+      "subcategory": "programming",
+      "meaning": "Programming study or practice",
+      "expressions": [
+        "learn Python",
+        "practice coding"
+      ],
+      "inclusion": "Programming learning or practice",
+      "exclusion": "Using software; reading a programming book"
+    },
+    {
+      "category": "reading",
+      "subcategory": "book",
+      "meaning": "Reading books",
+      "expressions": [
+        "read a book",
+        "read a novel",
+        "read chapters"
+      ],
+      "inclusion": "Book is the reading object",
+      "exclusion": "Articles; writing; reading with unknown medium"
+    },
+    {
+      "category": "reading",
+      "subcategory": "article",
+      "meaning": "Reading articles",
+      "expressions": [
+        "read an article",
+        "read a news article"
+      ],
+      "inclusion": "Article is the reading object",
+      "exclusion": "Books; unknown medium"
+    },
+    {
+      "category": "household",
+      "subcategory": "cleaning",
+      "meaning": "Removing dirt or dust",
+      "expressions": [
+        "clean",
+        "vacuum",
+        "dust"
+      ],
+      "inclusion": "Removal of dirt",
+      "exclusion": "Organizing items; washing clothes"
+    },
+    {
+      "category": "household",
+      "subcategory": "laundry",
+      "meaning": "Washing or drying clothes",
+      "expressions": [
+        "do laundry",
+        "wash clothes",
+        "dry clothes"
+      ],
+      "inclusion": "Washing or drying textiles",
+      "exclusion": "Putting clothes away; cleaning floors"
+    },
+    {
+      "category": "household",
+      "subcategory": "cooking",
+      "meaning": "Preparing food",
+      "expressions": [
+        "cook dinner",
+        "prepare a meal",
+        "bake bread"
+      ],
+      "inclusion": "Food preparation",
+      "exclusion": "Reading about cooking"
+    },
+    {
+      "category": "household",
+      "subcategory": "organizing",
+      "meaning": "Arranging or putting away items",
+      "expressions": [
+        "organize",
+        "put away",
+        "arrange items"
+      ],
+      "inclusion": "Arrangement of items",
+      "exclusion": "Removing dirt; washing clothes"
+    },
+    {
+      "category": "daily_routine",
+      "subcategory": "journaling",
+      "meaning": "Writing a personal journal",
+      "expressions": [
+        "journal",
+        "write in my diary"
+      ],
+      "inclusion": "Personal journal action",
+      "exclusion": "Creative fiction"
+    },
+    {
+      "category": "creative",
+      "subcategory": "writing",
+      "meaning": "Creative writing",
+      "expressions": [
+        "write a story",
+        "write a poem"
+      ],
+      "inclusion": "Creative composition",
+      "exclusion": "Personal journal; unspecified writing"
+    },
+    {
+      "category": "creative",
+      "subcategory": "drawing",
+      "meaning": "Drawing",
+      "expressions": [
+        "draw",
+        "sketch"
+      ],
+      "inclusion": "Drawing action",
+      "exclusion": "Unspecified art"
+    },
+    {
+      "category": "creative",
+      "subcategory": "music_practice",
+      "meaning": "Practicing music",
+      "expressions": [
+        "practice piano",
+        "rehearse guitar"
+      ],
+      "inclusion": "Music practice",
+      "exclusion": "Listening to music"
+    },
+    {
+      "category": "social",
+      "subcategory": "contact",
+      "meaning": "Contacting someone",
+      "expressions": [
+        "call",
+        "text",
+        "email someone"
+      ],
+      "inclusion": "Making contact",
+      "exclusion": "Explicit sustained conversation; meeting"
+    },
+    {
+      "category": "social",
+      "subcategory": "conversation",
+      "meaning": "Having a conversation",
+      "expressions": [
+        "talk with",
+        "have a conversation"
+      ],
+      "inclusion": "Conversing is the goal",
+      "exclusion": "Contact alone; meeting alone"
+    },
+    {
+      "category": "social",
+      "subcategory": "meeting",
+      "meaning": "Meeting someone",
+      "expressions": [
+        "meet a friend",
+        "visit someone"
+      ],
+      "inclusion": "Meeting action",
+      "exclusion": "Calling or texting"
+    },
+    {
+      "category": "other",
+      "subcategory": "other",
+      "meaning": "Explicit activity outside dictionary",
+      "expressions": [
+        "water plants",
+        "meditate",
+        "donate blood"
+      ],
+      "inclusion": "Clear action unsupported by fixed entries",
+      "exclusion": "Missing or unclear action; known category with unknown subtype"
+    }
+  ]
+}
