@@ -35,6 +35,23 @@ import {
     TextInput,
     View,
 } from "react-native";
+
+function formatSuggestion(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const item = value as Record<string, unknown>;
+    for (const key of ["question", "text", "prompt", "message"]) {
+      if (typeof item[key] === "string") return item[key] as string;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "AI suggestion unavailable.";
+    }
+  }
+  return String(value ?? "");
+}
+
 export default function Create() {
   const { t } = useLanguage();
   const { state, dispatch } = useAppState();
@@ -51,6 +68,7 @@ export default function Create() {
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [analysis, setAnalysis] = useState<ChallengeNlpResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const analysisContext = useRef<{ key: string; request: ChallengeNlpRequest } | null>(null);
   const currentTitle = useRef(title);
@@ -153,6 +171,7 @@ export default function Create() {
       return;
     }
     let savedChallenge;
+    setPosting(true);
     try {
       savedChallenge = await saveChallenge({
         userId: state.authUserId,
@@ -168,6 +187,8 @@ export default function Create() {
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save your challenge.");
       return;
+    } finally {
+      setPosting(false);
     }
     dispatch({
       type: "create",
@@ -288,7 +309,10 @@ export default function Create() {
               <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Getting suggestions…" : "Get AI suggestions"} onPress={() => void analyzeInput()} />
               {!!analysisError && <Text accessibilityRole="alert" style={{ color: c.red }}>{analysisError}</Text>}
               {analysis && <Text style={s.caption}>AI suggestions</Text>}
-              {analysis && [...analysis.data.clarification_questions, ...analysis.data.actions.flatMap((action) => action.clarification_questions)].map((question, index) => (
+              {analysis && [
+                ...(Array.isArray(analysis.data.clarification_questions) ? analysis.data.clarification_questions : []),
+                ...analysis.data.actions.flatMap((action) => Array.isArray(action.clarification_questions) ? action.clarification_questions : []),
+              ].map(formatSuggestion).filter(Boolean).map((question, index) => (
                 <Text key={`${index}-${question}`} translate={false} style={s.caption}>{question}</Text>
               ))}
               <Text style={s.sectionTitle}>Pick a category</Text>
@@ -458,8 +482,9 @@ export default function Create() {
               )}
             </Card>
             <Button
-              label={analyzing ? "Posting…" : "Post challenge"}
-              disabled={analyzing || !title.trim()}
+              label={posting ? "Posting…" : analyzing ? "Checking AI…" : "Post challenge"}
+              loading={posting || analyzing}
+              disabled={posting || analyzing || !title.trim()}
               onPress={() => void createChallenge()}
             />
             <Text style={[s.caption, { textAlign: "center" }]}>Visible to your friends</Text>

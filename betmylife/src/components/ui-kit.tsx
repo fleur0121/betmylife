@@ -7,6 +7,7 @@
 import { ScreenHeader } from './screen-header';
 import type { PropsWithChildren } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -126,11 +127,13 @@ export function Button({
   onPress,
   secondary = false,
   disabled = false,
+  loading = false,
 }: {
   label: string;
   onPress: () => void;
   secondary?: boolean;
   disabled?: boolean;
+  loading?: boolean;
 }) {
   return (
     <Pressable
@@ -145,9 +148,10 @@ export function Button({
         pressed && s.pressed,
       ]}
     >
-      <Text style={[s.buttonText, secondary && { color: c.primaryDark }]}>
-        {label}
-      </Text>
+      <View style={s.buttonContent}>
+        {loading && <ActivityIndicator size="small" color={secondary ? c.primary : c.card} />}
+        <Text style={[s.buttonText, secondary && { color: c.primaryDark }]}>{label}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -306,6 +310,12 @@ export const s = StyleSheet.create({
     fontWeight: '700',
     fontSize: type.body,
     textAlign: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   pressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
   stat: { flex: 1, alignItems: 'center', paddingVertical: space.md, gap: 6 },
