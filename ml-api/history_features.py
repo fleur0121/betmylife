@@ -1,4 +1,7 @@
+import json
+from datetime import timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import pandas as pd
 
@@ -119,6 +122,51 @@ def stats_for_subset(subset, general_prior):
     return probability, attempts
 
 
+def day_type(day_of_week):
+    """Weekend (Sat/Sun) or weekday."""
+    return "weekend" if int(day_of_week) >= 5 else "weekday"
+
+
+def personal_context_probability(history, category, day_of_week, general_prior):
+    """
+    Personalize the General prior with weekday/weekend history.
+
+    1. The user's history for the same behavior on the OTHER day type
+       is blended with the General prior.
+    2. That result is the prior for the history on the SAME day type
+       (weekend for a Saturday challenge, weekday for a Tuesday one).
+
+    Each observation is counted once. A user with no day-type gap gets
+    the same result as a plain category blend, while someone who wakes
+    up reliably on weekdays but not on weekends gets lower odds for a
+    Saturday wake-up than for a Tuesday one.
+
+    history needs "category" and "success" columns, plus "day_of_week"
+    for the day-type split. Returns
+    (probability, category_attempts, same_day_type_attempts).
+    """
+    if history.empty or "category" not in history.columns:
+        return float(general_prior), 0, 0
+
+    same_category = history[history["category"] == category]
+    if "day_of_week" not in same_category.columns:
+        probability, attempts = stats_for_subset(same_category, general_prior)
+        return probability, attempts, 0
+
+    is_same_day_type = (
+        same_category["day_of_week"].apply(day_type) == day_type(day_of_week)
+    )
+    other_day_type_probability, _ = stats_for_subset(
+        same_category[~is_same_day_type],
+        general_prior,
+    )
+    probability, context_attempts = stats_for_subset(
+        same_category[is_same_day_type],
+        other_day_type_probability,
+    )
+    return probability, len(same_category), context_attempts
+
+
 def current_streak(history):
     """
     Count consecutive successes from the user's
@@ -139,6 +187,66 @@ def current_streak(history):
             break
 
     return streak
+
+
+def json_object(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, (str, bytes, bytearray)):
+        try:
+            parsed = json.loads(value)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def local_challenge_date(row):
+    user_input = json_object(row.get("user_input_json"))
+    analysis = json_object(row.get("analysis_json"))
+    data = analysis.get("data")
+    context = data.get("context") if isinstance(data, dict) else {}
+    context = context if isinstance(context, dict) else {}
+    timezone_name = user_input.get("timezone") or context.get("timezone")
+    try:
+        user_zone = ZoneInfo(timezone_name) if isinstance(timezone_name, str) else timezone.utc
+    except ZoneInfoNotFoundError:
+        user_zone = timezone.utc
+
+    event_time = None
+    actions = data.get("actions") if isinstance(data, dict) else None
+    if isinstance(actions, list):
+        for action in actions:
+            times = action.get("times") if isinstance(action, dict) else None
+            if not isinstance(times, list):
+                continue
+            ordered = sorted(
+                (item for item in times if isinstance(item, dict)),
+                key=lambda item: item.get("kind") != "event",
+            )
+            for item in ordered:
+                resolved_at = item.get("resolved_at")
+                if not isinstance(resolved_at, str):
+                    continue
+                try:
+                    event_time = pd.Timestamp(resolved_at)
+                except (TypeError, ValueError):
+                    continue
+                break
+            if event_time is not None:
+                break
+
+    if event_time is None:
+        event_time = pd.Timestamp(row.get("deadline_at"))
+        if pd.isna(event_time):
+            event_time = pd.Timestamp(row["occurred_at"])
+            event_time = event_time.tz_localize("UTC") if event_time.tzinfo is None else event_time
+        else:
+            event_time = event_time.tz_localize("UTC") if event_time.tzinfo is None else event_time
+    elif event_time.tzinfo is None:
+        event_time = event_time.tz_localize(user_zone)
+
+    return pd.Timestamp(event_time.tz_convert(user_zone).date())
 
 
 def get_prior(general_priors, name):

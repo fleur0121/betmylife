@@ -10,18 +10,14 @@ ROOT = Path(__file__).parent
 ENV_FILE = ROOT.parent / "betmylife" / "backend" / ".env"
 
 
-def load_observations(sources: tuple[str, ...]) -> pd.DataFrame:
-    if not sources:
-        raise ValueError("At least one observation source is required")
-
+def connect(**options):
+    """Connect to the app database configured in betmylife/backend/.env."""
     load_dotenv(ENV_FILE)
     required = ("TIDB_HOST", "TIDB_USER", "TIDB_PASSWORD", "TIDB_DATABASE")
     missing = [name for name in required if not os.getenv(name)]
     if missing:
         raise RuntimeError(f"Missing DB settings in {ENV_FILE}: {', '.join(missing)}")
-
-    placeholders = ", ".join(["%s"] * len(sources))
-    connection = pymysql.connect(
+    return pymysql.connect(
         host=os.environ["TIDB_HOST"],
         port=int(os.getenv("TIDB_PORT", "4000")),
         user=os.environ["TIDB_USER"],
@@ -34,8 +30,16 @@ def load_observations(sources: tuple[str, ...]) -> pd.DataFrame:
         ),
         cursorclass=pymysql.cursors.DictCursor,
         connect_timeout=10,
-        read_timeout=60,
+        **options,
     )
+
+
+def load_observations(sources: tuple[str, ...]) -> pd.DataFrame:
+    if not sources:
+        raise ValueError("At least one observation source is required")
+
+    placeholders = ", ".join(["%s"] * len(sources))
+    connection = connect(read_timeout=60)
     try:
         with connection.cursor() as cursor:
             cursor.execute(

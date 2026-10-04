@@ -9,7 +9,7 @@ from contextlib import redirect_stdout
 import pandas as pd
 import numpy as np
 
-from history_features import stats_for_subset
+from history_features import personal_context_probability, stats_for_subset
 import preview_odds
 from preview_odds import general_category_supported, local_challenge_date
 from train_personal import (
@@ -125,6 +125,55 @@ class PersonalGeneralParityTests(unittest.TestCase):
         self.assertAlmostEqual(probability_with_one, 0.5)
         self.assertEqual(attempts_with_ten, 10)
         self.assertAlmostEqual(probability_with_ten, 11 / 15)
+
+
+class PersonalContextProbabilityTests(unittest.TestCase):
+    @staticmethod
+    def history(rows):
+        return pd.DataFrame(
+            [
+                {"category": category, "day_of_week": day, "success": success}
+                for category, day, success in rows
+            ]
+        )
+
+    def test_without_history_returns_general_prior(self):
+        probability, attempts, context_attempts = personal_context_probability(
+            pd.DataFrame(), "sleep", 5, 0.6
+        )
+
+        self.assertEqual((probability, attempts, context_attempts), (0.6, 0, 0))
+
+    def test_single_day_type_matches_plain_category_blend(self):
+        history = self.history([("sleep", 1, 1), ("sleep", 2, 1), ("exercise", 1, 0)])
+
+        probability, attempts, context_attempts = personal_context_probability(
+            history, "sleep", 3, 0.6
+        )
+        expected, _ = stats_for_subset(history[history["category"] == "sleep"], 0.6)
+
+        self.assertAlmostEqual(probability, expected)
+        self.assertEqual((attempts, context_attempts), (2, 2))
+
+    def test_weekend_failures_lower_weekend_odds_only(self):
+        weekdays = [("sleep", day % 5, 1) for day in range(20)]
+        weekends = [("sleep", 5 + day % 2, 0) for day in range(10)]
+        history = self.history(weekdays + weekends)
+
+        saturday, attempts, saturday_attempts = personal_context_probability(
+            history, "sleep", 5, 0.6
+        )
+        tuesday, _, tuesday_attempts = personal_context_probability(
+            history, "sleep", 1, 0.6
+        )
+
+        # Weekday history (20/20) shrunk to the General 0.6 is the weekend prior.
+        weekday_rate = (20 + 5 * 0.6) / 25
+        self.assertAlmostEqual(saturday, 5 * weekday_rate / 15)
+        self.assertAlmostEqual(tuesday, (20 + 5 * (5 * 0.6 / 15)) / 25)
+        self.assertEqual((attempts, saturday_attempts, tuesday_attempts), (30, 10, 20))
+        self.assertLess(saturday, 0.4)
+        self.assertGreater(tuesday, 0.8)
 
 
 class CategorySupportTests(unittest.TestCase):

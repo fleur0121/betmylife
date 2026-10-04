@@ -1,9 +1,7 @@
 import argparse
-import json
 import os
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import joblib
 import pandas as pd
@@ -13,7 +11,9 @@ from dotenv import load_dotenv
 from history_features import (
     PRIOR_STRENGTH,
     current_streak,
-    stats_for_subset,
+    day_type,
+    local_challenge_date,
+    personal_context_probability,
     time_bucket,
 )
 
@@ -45,66 +45,6 @@ def fair_odds(probability):
 
 def general_category_supported(category, known_categories):
     return category in known_categories
-
-
-def json_object(value):
-    if isinstance(value, dict):
-        return value
-    if isinstance(value, (str, bytes, bytearray)):
-        try:
-            parsed = json.loads(value)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            return {}
-        return parsed if isinstance(parsed, dict) else {}
-    return {}
-
-
-def local_challenge_date(row):
-    user_input = json_object(row.get("user_input_json"))
-    analysis = json_object(row.get("analysis_json"))
-    data = analysis.get("data")
-    context = data.get("context") if isinstance(data, dict) else {}
-    context = context if isinstance(context, dict) else {}
-    timezone_name = user_input.get("timezone") or context.get("timezone")
-    try:
-        user_zone = ZoneInfo(timezone_name) if isinstance(timezone_name, str) else timezone.utc
-    except ZoneInfoNotFoundError:
-        user_zone = timezone.utc
-
-    event_time = None
-    actions = data.get("actions") if isinstance(data, dict) else None
-    if isinstance(actions, list):
-        for action in actions:
-            times = action.get("times") if isinstance(action, dict) else None
-            if not isinstance(times, list):
-                continue
-            ordered = sorted(
-                (item for item in times if isinstance(item, dict)),
-                key=lambda item: item.get("kind") != "event",
-            )
-            for item in ordered:
-                resolved_at = item.get("resolved_at")
-                if not isinstance(resolved_at, str):
-                    continue
-                try:
-                    event_time = pd.Timestamp(resolved_at)
-                except (TypeError, ValueError):
-                    continue
-                break
-            if event_time is not None:
-                break
-
-    if event_time is None:
-        event_time = pd.Timestamp(row.get("deadline_at"))
-        if pd.isna(event_time):
-            event_time = pd.Timestamp(row["occurred_at"])
-            event_time = event_time.tz_localize("UTC") if event_time.tzinfo is None else event_time
-        else:
-            event_time = event_time.tz_localize("UTC") if event_time.tzinfo is None else event_time
-    elif event_time.tzinfo is None:
-        event_time = event_time.tz_localize(user_zone)
-
-    return pd.Timestamp(event_time.tz_convert(user_zone).date())
 
 
 def load_db_history(user_id, as_of):
@@ -222,10 +162,15 @@ def main():
     )
 
     matching_history = history[history["category"] == args.category]
-    matching_attempts = len(matching_history)
     matching_successes = int(matching_history["success"].sum())
-    blended_success_probability, matching_attempts = stats_for_subset(
-        matching_history,
+    (
+        blended_success_probability,
+        matching_attempts,
+        context_attempts,
+    ) = personal_context_probability(
+        history,
+        args.category,
+        day_of_week,
         general_probability,
     )
     blended_success_probability, yes_odds, no_odds = fair_odds(
@@ -241,7 +186,8 @@ def main():
     print(f"personal_history_rows={len(history)}")
     print(
         f"matching_history: successes={matching_successes}, "
-        f"behavior_attempts={matching_attempts}"
+        f"behavior_attempts={matching_attempts}, "
+        f"{day_type(day_of_week)}_attempts={context_attempts}"
     )
     if "target_hour" in history.columns:
         matching_time = history[
@@ -261,7 +207,8 @@ def main():
     print(
         "odds blend: (personal_successes + "
         f"{PRIOR_STRENGTH} * general_model_p) / "
-        f"(personal_attempts + {PRIOR_STRENGTH})"
+        f"(personal_attempts + {PRIOR_STRENGTH}); other day-type history "
+        f"first, then {day_type(day_of_week)} history"
     )
     print(
         f"ODDS_BASE p_success={blended_success_probability:.1%} "

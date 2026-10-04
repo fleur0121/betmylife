@@ -9,7 +9,7 @@ import pymysql
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from history_features import stats_for_subset
+from history_features import local_challenge_date, personal_context_probability
 
 
 MODEL_FILE = Path(__file__).with_name("general_model.pkl")
@@ -31,6 +31,7 @@ class OddsResponse(BaseModel):
     general_category_supported: bool
     personal_attempts: int
     personal_successes: int
+    same_day_type_attempts: int
 
 
 @lru_cache(maxsize=1)
@@ -87,10 +88,14 @@ def personal_history(user_id: str, category: str) -> pd.DataFrame:
     try:
         with connection.cursor() as cursor:
             cursor.execute(
-                """SELECT success FROM ml_observations
-                WHERE user_id = %s AND source = 'app' AND category = %s
-                  AND occurred_at < %s
-                ORDER BY occurred_at""",
+                """SELECT o.success, o.occurred_at, c.deadline_at,
+                c.user_input_json, c.analysis_json
+                FROM ml_observations AS o
+                LEFT JOIN challenges AS c ON c.id = o.challenge_id
+                    AND c.user_id = o.user_id
+                WHERE o.user_id = %s AND o.source = 'app' AND o.category = %s
+                  AND o.occurred_at < %s
+                ORDER BY o.occurred_at""",
                 (
                     user_id,
                     category,
@@ -100,7 +105,19 @@ def personal_history(user_id: str, category: str) -> pd.DataFrame:
             rows = cursor.fetchall()
     finally:
         connection.close()
-    return pd.DataFrame(rows, columns=["success"])
+    # Weekday of the challenge event in the user's timezone, not of the
+    # UTC resolution time, so a 7am Saturday wake-up counts as weekend.
+    return pd.DataFrame(
+        [
+            {
+                "category": category,
+                "success": int(row["success"]),
+                "day_of_week": local_challenge_date(row).dayofweek,
+            }
+            for row in rows
+        ],
+        columns=["category", "success", "day_of_week"],
+    )
 
 
 def fair_odds(probability: float) -> tuple[float, float, float]:
@@ -119,7 +136,12 @@ def predict_odds(request: OddsRequest) -> OddsResponse:
         bundle = general_model_bundle()
         population_probability, supported = general_probability(request, bundle)
         history = personal_history(request.user_id, request.category)
-        probability, attempts = stats_for_subset(history, population_probability)
+        probability, attempts, context_attempts = personal_context_probability(
+            history,
+            request.category,
+            request.day_of_week,
+            population_probability,
+        )
         probability, yes_odds, no_odds = fair_odds(probability)
     except Exception as error:
         raise HTTPException(status_code=503, detail="Odds model is temporarily unavailable") from error
@@ -133,4 +155,5 @@ def predict_odds(request: OddsRequest) -> OddsResponse:
         general_category_supported=supported,
         personal_attempts=attempts,
         personal_successes=successes,
+        same_day_type_attempts=context_attempts,
     )
