@@ -493,10 +493,12 @@ def write(persona_rows, password):
                     [tuple(row[column] for column in CHALLENGE_COLUMNS)
                      for row in [*challenges, demo]],
                 )
+                # Only placeholders in VALUES, so pymysql sends one multi-row
+                # INSERT instead of a round trip per row.
                 cursor.executemany(
                     f"INSERT INTO ml_observations (source, {', '.join(OBSERVATION_COLUMNS)}) "
-                    f"VALUES ('app', {', '.join(['%s'] * len(OBSERVATION_COLUMNS))})",
-                    [tuple(row[column] for column in OBSERVATION_COLUMNS)
+                    f"VALUES ({', '.join(['%s'] * (len(OBSERVATION_COLUMNS) + 1))})",
+                    [("app", *(row[column] for column in OBSERVATION_COLUMNS))
                      for row in observations],
                 )
         connection.commit()
