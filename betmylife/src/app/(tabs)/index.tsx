@@ -10,6 +10,7 @@ import { Text } from "@/components/localized-text";
 import { ScreenHeader } from "@/components/screen-header";
 import { s } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
@@ -85,6 +86,7 @@ export default function Home() {
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [profilePoints, setProfilePoints] = useState<number | null>(null);
   const list = useRef<FlatList<Challenge>>(null);
   useEffect(() => {
     if (!state.authUserId) return;
@@ -122,6 +124,26 @@ export default function Home() {
       cancelled = true;
     };
   }, [dispatch, state.authUserId]);
+  useEffect(() => {
+    if (!state.authUserId) return;
+    let cancelled = false;
+    fetch(`${API_URL}/users/${state.authUserId}/profile`)
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail ?? "Could not load profile.");
+        return body as { points: number };
+      })
+      .then((profile) => {
+        if (!cancelled) setProfilePoints(profile.points);
+      })
+      .catch(() => {
+        if (!cancelled) setProfilePoints(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.authUserId]);
+  const predictionCount = Object.keys(state.stakedPredictions).length;
   const featured = state.challenges.find((item) => item.id === "read-today");
   const friendNames = friendDirectory
     .filter((friend) => state.friendIds.includes(friend.id))
@@ -361,19 +383,19 @@ export default function Home() {
               <View style={styles.statsRow}>
                 <StatTile
                   asset="iconStreak"
-                  value="21"
-                  label="DAY STREAK"
+                  value={String(state.challenges.length)}
+                  label="MY CHALLENGES"
                   color={c.peach}
                 />
                 <StatTile
                   asset="iconPoints"
-                  value={state.wallet.toLocaleString()}
+                  value={(profilePoints ?? state.wallet).toLocaleString()}
                   label="POINTS"
                   color={c.cream}
                 />
                 <StatTile
                   asset="iconPrediction"
-                  value="8"
+                  value={String(predictionCount)}
                   label="PREDICTIONS"
                   color={c.lavender}
                 />
