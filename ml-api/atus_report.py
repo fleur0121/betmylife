@@ -56,6 +56,9 @@ def hour_label(h):
 
 def main():
     df = pd.read_csv(DATA_FILE, dtype={"user_id": str})
+    # Show every category + goal type separately, e.g. "study/deadline"
+    if "goal_type" in df:
+        df["category"] = df.category + "/" + df.goal_type
     y = df.success
 
     print("MODEL REPORT - Predict My Life (ATUS: study & cook)")
@@ -85,11 +88,11 @@ def main():
 
     # ---- 2. By category ----
     section("2. ACCURACY BY CATEGORY (Brier)")
-    print(f"{'Category':<12}{'Rows':>6}{'Success':>9}{'Model':>8}{'Baseline':>10}")
+    print(f"{'Category':<22}{'Rows':>6}{'Success':>9}{'Model':>8}{'Baseline':>10}")
     for cat in sorted(df.category.unique()):
         k = (df.category == cat).to_numpy()
         yk = y[k]
-        print(f"{cat:<12}{k.sum():>6}{yk.mean():>9.0%}"
+        print(f"{cat:<22}{k.sum():>6}{yk.mean():>9.0%}"
               f"{brier_score_loss(yk, pred[k]):>8.3f}"
               f"{brier_score_loss(yk, np.full(k.sum(), yk.mean())):>10.3f}")
 
@@ -112,13 +115,13 @@ def main():
         """Success rate per category x value, as a table."""
         g = data.groupby(["category", col]).success
         rate, n = g.mean().unstack(), g.size().unstack()
-        print(f"  {'':<10}" + "".join(f"{labels(v):>8}" for v in rate.columns))
+        print(f"  {'':<20}" + "".join(f"{labels(v):>8}" for v in rate.columns))
         for cat in rate.index:
             cells = []
             for v in rate.columns:
                 r, k = rate.loc[cat, v], n.loc[cat, v]
                 cells.append("     -" if pd.isna(r) else f"{r:>6.0%}{'*' if k < 20 else ' '}")
-            print(f"  {cat:<10}" + "".join(f"{c:>8}" for c in cells))
+            print(f"  {cat:<20}" + "".join(f"{c:>8}" for c in cells))
 
     print("\nBy difficulty:")
     by_category("difficulty", lambda v: f"d{v}")
@@ -132,7 +135,7 @@ def main():
     print("\nBy deadline:")
     by_category("target_hour", hour_label)
 
-    study = df[df.category == "study"]
+    study = df[df.category.isin(["study", "study/amount"])]
     if len(study):
         print("\nStudy by goal length:")
         by_category("goal", lambda v: f"{int(v) // 60}h", data=study)

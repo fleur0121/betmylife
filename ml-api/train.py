@@ -6,18 +6,17 @@ Run after prepare_fitbit.py and prepare_atus.py:
     python train.py
 
 Steps:
-  1. Load Fitbit (steps, exercise, sleep, wake_up) + ATUS (study, cook) challenges
-  2. Compare the feature sets in features.FEATURE_SETS with cross-validation
-     split by person, and keep the one with the lowest Brier score:
-       - wake_weekend_only             : one weekend interaction (wake-up), shared hour slope
-       - weekend_per_category          : a weekend effect per category, shared hour slope
-       - weekend_and_hour_per_category : weekend AND deadline effect per category
-  3. Train the chosen model on ALL data and save model.joblib
-     (model + feature list + defaults the API needs)
-
-user_confidence is no longer a model feature (it was simulated); main.py applies it.
+  1. Load Fitbit (steps, exercise, sleep, wake_up) + ATUS (study, cook, exercise)
+     challenges, each labelled with a goal_type (amount / deadline / start_time)
+  2. Compare the feature sets in features.py with cross-validation split by person
+     (e.g. ignoring goal_type vs. giving every category + goal type its own baseline)
+     and keep the one with the lowest Brier score
+  3. Show accuracy for every category + goal type
+  4. Train the chosen model on ALL data and save model.joblib
+     (model + feature list + everything the API needs)
 """
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -31,13 +30,14 @@ from sklearn.model_selection import GroupKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-from features import CATEGORIES, FEATURE_SETS, add_features
+from features import CATEGORICAL, CATEGORIES, FEATURE_SETS, add_features
 
 ROOT = Path(__file__).parent
 DATA_FILES = {
     "fitbit": ROOT / "data" / "fitbit" / "fitbit_challenges.csv",
     "atus": ROOT / "data" / "atus" / "atus_challenges.csv",
 }
+TYPICAL_FILES = [ROOT / "data" / "fitbit" / "typical.json", ROOT / "data" / "atus" / "typical.json"]
 MODEL_FILE = ROOT / "model.joblib"
 MODEL_VERSION = "v2"
 
@@ -47,6 +47,8 @@ def load_data():
     for name, path in DATA_FILES.items():
         if path.exists():
             df = pd.read_csv(path, dtype={"user_id": str})
+            if "goal_type" not in df:
+                raise ValueError(f"{path.name} has no goal_type column - rerun prepare_{name}.py")
             frames.append(df)
             print(f"Loaded {len(df):>5} rows from {name:<6} ({path.name})")
         else:
@@ -59,13 +61,22 @@ def load_data():
     return add_features(df)
 
 
+def load_typical():
+    typical = {}
+    for path in TYPICAL_FILES:
+        if path.exists():
+            typical.update(json.loads(path.read_text()))
+    return typical
+
+
 def make_model(features):
-    numeric = [f for f in features if f != "category"]
+    cats = [f for f in features if f in CATEGORICAL]
+    numeric = [f for f in features if f not in CATEGORICAL]
     pre = make_column_transformer(
-        (OneHotEncoder(handle_unknown="ignore"), ["category"]),
+        (OneHotEncoder(handle_unknown="ignore"), cats),
         (StandardScaler(), numeric),
     )
-    return make_pipeline(pre, LogisticRegression(max_iter=2000))
+    return make_pipeline(pre, LogisticRegression(max_iter=3000))
 
 
 def cross_validate(df, features, n_splits=5):
@@ -87,40 +98,37 @@ def scores(y, p):
 
 
 def section(title):
-    print(f"\n{'=' * 60}\n{title}\n{'=' * 60}")
+    print(f"\n{'=' * 64}\n{title}\n{'=' * 64}")
 
 
 def main():
     df = load_data()
     y = df.success
     print(f"Total: {len(df)} challenges, {df.person.nunique()} people, "
-          f"categories: {', '.join(sorted(df.category.unique()))}")
+          f"{df.cat_goal.nunique()} category + goal type combinations")
 
     # ---- 1. Compare feature sets ----
     section("1. FEATURE SET COMPARISON (cross-validated, unseen people)")
-    print(f"{'Feature set':<32}{'Brier':>8}{'LogLoss':>9}{'Acc':>7}{'AUC':>7}")
+    print(f"{'Feature set':<34}{'Brier':>8}{'LogLoss':>9}{'Acc':>7}{'AUC':>7}")
     results, preds = {}, {}
     for name, features in FEATURE_SETS.items():
         preds[name] = cross_validate(df, features)
         results[name] = scores(y, preds[name])
         s = results[name]
-        print(f"{name:<32}{s['brier']:>8.4f}{s['log_loss']:>9.4f}{s['accuracy']:>7.1%}{s['auc']:>7.3f}")
+        print(f"{name:<34}{s['brier']:>8.4f}{s['log_loss']:>9.4f}{s['accuracy']:>7.1%}{s['auc']:>7.3f}")
+    best = min(results, key=lambda n: results[n]["brier"])
+    print(f"\nChosen: {best}")
 
-    ranked = sorted(results, key=lambda n: results[n]["brier"])
-    best, runner_up = ranked[0], ranked[1]
-    gain = results[runner_up]["brier"] - results[best]["brier"]
-    print(f"\nChosen: {best}  (Brier better than {runner_up} by {gain:.4f})")
-
-    # ---- 2. Detail for the chosen model ----
-    section(f"2. CHOSEN MODEL BY CATEGORY ({best})")
+    # ---- 2. By category + goal type ----
+    section(f"2. ACCURACY BY CATEGORY + GOAL TYPE ({best})")
     pred = preds[best]
-    print(f"{'Category':<10}{'Source':<8}{'Rows':>6}{'Success':>9}{'Brier':>8}{'Baseline':>10}")
-    for cat in [c for c in CATEGORIES if c in set(df.category)]:
-        k = (df.category == cat).to_numpy()
-        yk = y[k]
-        print(f"{cat:<10}{df.source[k].iloc[0]:<8}{k.sum():>6}{yk.mean():>9.0%}"
+    print(f"{'Category':<10}{'Goal type':<12}{'Source':<8}{'Rows':>6}{'Success':>9}{'Brier':>8}{'Baseline':>10}")
+    for (cat, gt), g in df.groupby(["category", "goal_type"]):
+        k = g.index.to_numpy()
+        yk = y.iloc[k]
+        print(f"{cat:<10}{gt:<12}{g.source.iloc[0]:<8}{len(k):>6}{yk.mean():>9.0%}"
               f"{brier_score_loss(yk, pred[k]):>8.3f}"
-              f"{brier_score_loss(yk, np.full(k.sum(), yk.mean())):>10.3f}")
+              f"{brier_score_loss(yk, np.full(len(k), yk.mean())):>10.3f}")
 
     print("\nCalibration (model said -> actually happened):")
     bins = pd.cut(pred, [0, 0.2, 0.4, 0.6, 0.8, 1.0])
@@ -137,18 +145,22 @@ def main():
 
     names = [n.split("__")[1] for n in final[0].get_feature_names_out()]
     weights = pd.Series(final[-1].coef_[0], index=names)
-    print("Weights (+ = more likely to succeed):")
-    for name, w in weights.reindex(weights.abs().sort_values(ascending=False).index).items():
-        print(f"  {name:<22}{w:>+6.2f}  {'#' * int(round(abs(w) * 10))}")
+    print("Largest weights (+ = more likely to succeed):")
+    top = weights.reindex(weights.abs().sort_values(ascending=False).index).head(15)
+    for name, w in top.items():
+        print(f"  {name:<28}{w:>+6.2f}  {'#' * int(round(abs(w) * 10))}")
 
-    # Defaults the API needs for brand-new users (no history yet)
-    category_rate = df.groupby("category").success.mean().round(3).to_dict()
+    combos = df.groupby("cat_goal")
     artifact = {
         "model": final,
         "features": features,
         "feature_set": best,
         "categories": CATEGORIES,
-        "category_success_rate": category_rate,   # new-user past_success_rate
+        "trained_combos": sorted(df.cat_goal.unique()),
+        "category_success_rate": df.groupby("category").success.mean().round(3).to_dict(),
+        "combo_success_rate": combos.success.mean().round(3).to_dict(),
+        "neutral_hour": combos.target_hour.median().round().astype(int).to_dict(),
+        "typical": load_typical(),                 # typical levels for auto difficulty
         "overall_success_rate": round(float(y.mean()), 3),
         "model_version": MODEL_VERSION,
         "trained_on": {k: int((df.source == k).sum()) for k in DATA_FILES},
@@ -159,29 +171,31 @@ def main():
     print(f"\nSaved -> {MODEL_FILE.name}  (version {MODEL_VERSION}, feature set '{best}')")
 
     # ---- 4. Sanity check: example predictions ----
-    section("4. EXAMPLE PREDICTIONS")
+    section("4. EXAMPLE PREDICTIONS (new user, no history, confidence 60%, medium difficulty)")
     examples = [
-        ("Wake up by 7 AM, weekday, medium",   "wake_up", 0, 7, 3),
-        ("Wake up by 7 AM, weekend, medium",   "wake_up", 1, 7, 3),
-        ("Study 1h by 11 PM, weekday",         "study",   0, 23, 1),
-        ("Study 3h by 9 PM, weekday",          "study",   0, 21, 4),
-        ("Cook dinner by 6 PM, weekday",       "cook",    0, 18, 4),
-        ("Cook dinner by 8 PM, weekend",       "cook",    1, 20, 1),
-        ("Walk 10k steps, hard for me",        "steps",   0, 22, 5),
-        ("Sleep 7h, weekend, medium",          "sleep",   1, 8, 3),
+        ("Wake up by 7 AM, weekday",         "wake_up",  "deadline",   0, 7),
+        ("Wake up by 7 AM, weekend",         "wake_up",  "deadline",   1, 7),
+        ("Asleep by 11 PM, weekday",         "sleep",    "deadline",   0, 23),
+        ("Asleep by 1 AM, weekday",          "sleep",    "deadline",   0, 25),
+        ("5,000 steps by 3 PM",              "steps",    "deadline",   0, 15),
+        ("Study 2h by 11 PM",                "study",    "amount",     0, 23),
+        ("Finish studying by 9 PM",          "study",    "deadline",   0, 21),
+        ("Start studying by 1 PM",           "study",    "start_time", 0, 13),
+        ("Start cooking dinner by 6 PM",     "cook",     "start_time", 0, 18),
+        ("Cook dinner 30+ min",              "cook",     "amount",     0, 22),
+        ("Work out before 12 PM",            "exercise", "deadline",   0, 12),
+        ("Start working out by 8 AM",        "exercise", "start_time", 0, 8),
     ]
-    rows = []
-    for label, cat, weekend, hour, diff in examples:
-        rows.append({"label": label, "category": cat, "is_weekend": weekend,
-                     "day_of_week": 5 if weekend else 1, "target_hour": hour,
-                     "difficulty": diff,
-                     "past_success_rate": category_rate.get(cat, artifact["overall_success_rate"]),
-                     "current_streak": 0, "previous_attempts": 0})
+    rate = artifact["category_success_rate"]
+    rows = [{"label": label, "category": cat, "goal_type": gt, "is_weekend": wk,
+             "day_of_week": 5 if wk else 1, "target_hour": hour, "difficulty": 3,
+             "user_confidence": 0.6, "past_success_rate": rate.get(cat, artifact["overall_success_rate"]),
+             "current_streak": 0, "previous_attempts": 0}
+            for label, cat, gt, wk, hour in examples]
     ex = add_features(pd.DataFrame(rows))
     ex["p"] = final.predict_proba(ex[features])[:, 1]
-    print("(new user: no history)")
     for _, r in ex.iterrows():
-        print(f"  {r.label:<36}{r.p:>6.0%}")
+        print(f"  {r.label:<34}{r.p:>6.0%}")
 
 
 if __name__ == "__main__":

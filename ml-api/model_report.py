@@ -54,6 +54,9 @@ def main():
     df = pd.read_csv(DATA_FILE)
     # Interaction: weekend wake-ups are much harder than weekday ones
     df["wake_weekend"] = ((df.category == "wake_up") & (df.is_weekend == 1)).astype(int)
+    # Show every category + goal type separately, e.g. "steps/deadline"
+    if "goal_type" in df:
+        df["category"] = df.category + "/" + df.goal_type
     y = df.success
 
     print("MODEL REPORT - Predict My Life")
@@ -87,11 +90,11 @@ def main():
 
     # ---- 2. By category ----
     section("2. ACCURACY BY CATEGORY (Brier)")
-    print(f"{'Category':<12}{'Rows':>6}{'Success':>9}{'Model':>8}{'Baseline':>10}")
+    print(f"{'Category':<22}{'Rows':>6}{'Success':>9}{'Model':>8}{'Baseline':>10}")
     for cat in sorted(df.category.unique()):
         k = (df.category == cat).to_numpy()
         yk = y[k]
-        print(f"{cat:<12}{k.sum():>6}{yk.mean():>9.0%}"
+        print(f"{cat:<22}{k.sum():>6}{yk.mean():>9.0%}"
               f"{brier_score_loss(yk, pred[k]):>8.3f}"
               f"{brier_score_loss(yk, np.full(k.sum(), yk.mean())):>10.3f}")
 
@@ -115,13 +118,13 @@ def main():
         """Success rate per category x value, as a table."""
         g = df.groupby(["category", col]).success
         rate, n = g.mean().unstack(), g.size().unstack()
-        print(f"  {'':<10}" + "".join(f"{labels(v):>8}" for v in rate.columns))
+        print(f"  {'':<20}" + "".join(f"{labels(v):>8}" for v in rate.columns))
         for cat in rate.index:
             cells = []
             for v in rate.columns:
                 r, k = rate.loc[cat, v], n.loc[cat, v]
                 cells.append("     -" if pd.isna(r) else f"{r:>6.0%}{'*' if k < 20 else ' '}")
-            print(f"  {cat:<10}" + "".join(f"{c:>8}" for c in cells))
+            print(f"  {cat:<20}" + "".join(f"{c:>8}" for c in cells))
 
     print("\nBy difficulty:")
     by_category("difficulty", lambda v: f"d{v}")
@@ -136,7 +139,7 @@ def main():
     print("\nBy day of week:")
     by_category("day_of_week", lambda v: DAYS[v])
 
-    wake = df[df.category == "wake_up"]
+    wake = df[df.category.str.startswith("wake_up")]
     if len(wake):
         print("\nWake-up by target time:")
         for h, rate in wake.groupby("target_hour").success.mean().items():
@@ -155,7 +158,8 @@ def main():
     print("- difficulty is computed precisely from Fitbit data; app users self-rate it,")
     print("  so real-world accuracy will be lower.")
     print("- user_confidence is SIMULATED, so its weight means nothing yet.")
-    print("- target_hour only truly varies for wake_up.")
+    print("- target_hour varies for deadline goals (wake-up, bedtime, steps by a time);")
+    print("  amount goals use a fixed end-of-day hour.")
 
 
 if __name__ == "__main__":

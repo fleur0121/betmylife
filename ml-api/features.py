@@ -9,21 +9,17 @@ always receives features built exactly the same way.
 import pandas as pd
 
 CATEGORIES = ["steps", "exercise", "sleep", "wake_up", "study", "cook"]
+GOAL_TYPES = ["amount", "deadline", "start_time", "task"]
 
-# "Neutral" deadline hour per category. Hour features are measured relative to this,
-# and main.py uses it as the default when a challenge has no real deadline.
-TYPICAL_HOUR = {"steps": 22, "exercise": 22, "sleep": 8, "wake_up": 8, "study": 22, "cook": 19}
+# Text columns -> one-hot encoded by the model
+CATEGORICAL = ["category", "goal_type", "cat_goal"]
 
-# Categories whose deadline really varies in the training data.
-# (steps / exercise / sleep always use one fixed hour, so there is nothing to learn there.)
-HOUR_CATEGORIES = ["wake_up", "study", "cook"]
-
-# Columns that come straight from the challenge / user history.
-# user_confidence is NOT here: it was simulated from past_success_rate + difficulty,
-# so the model can't learn anything real from it. main.py applies it separately.
+# Number columns that come straight from the challenge / user history
 BASE_NUMERIC = [
     "is_weekend",
+    "target_hour",
     "difficulty",
+    "user_confidence",
     "past_success_rate",
     "current_streak",
     "previous_attempts",
@@ -33,18 +29,29 @@ BASE_NUMERIC = [
 # (weekends hurt wake-up but help sleep/study/cook, so one shared weight isn't enough)
 WEEKEND_BY_CATEGORY = [f"weekend_{c}" for c in CATEGORIES]
 
-# One deadline slope per category, in hours later than typical
-# (later wake-up deadline helps a lot; later study deadline only a little)
-HOUR_BY_CATEGORY = [f"hour_{c}" for c in HOUR_CATEGORIES]
-
-# Feature sets that train.py compares
+# Feature sets that train.py compares (it keeps the one with the best Brier score)
 FEATURE_SETS = {
-    # Old setups: one shared target_hour slope for every category
-    "wake_weekend_only": ["category", "target_hour"] + BASE_NUMERIC + ["weekend_wake_up"],
-    "weekend_per_category": ["category", "target_hour"] + BASE_NUMERIC + WEEKEND_BY_CATEGORY,
-    # New: weekend AND deadline effects per category
-    "weekend_and_hour_per_category": ["category"] + BASE_NUMERIC + WEEKEND_BY_CATEGORY + HOUR_BY_CATEGORY,
+    # Ignores goal_type (the old model)
+    "category_only": ["category"] + BASE_NUMERIC + WEEKEND_BY_CATEGORY,
+    # Goal type has its own effect, the same for every category
+    "category+goal_type": ["category", "goal_type"] + BASE_NUMERIC + WEEKEND_BY_CATEGORY,
+    # Every category + goal type combination gets its own baseline
+    # (still keeps category and goal_type alone, so unseen combinations fall back to them)
+    "category*goal_type": ["category", "goal_type", "cat_goal"] + BASE_NUMERIC + WEEKEND_BY_CATEGORY,
+    # Same, but only the wake-up weekend interaction
+    "category*goal_type_wake_weekend": ["category", "goal_type", "cat_goal"] + BASE_NUMERIC
+                                       + ["weekend_wake_up"],
 }
+
+
+def model_hour(category: str, goal_type: str, hour: float) -> float:
+    """
+    Hour as the model expects it. Bedtimes after midnight are 24, 25 ...
+    ("asleep by 1 AM" = 25), so later bedtimes stay larger numbers.
+    """
+    if category == "sleep" and goal_type == "deadline" and hour < 12:
+        return hour + 24
+    return hour
 
 
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -52,10 +59,10 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     if "is_weekend" not in df and "day_of_week" in df:
         df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+    if "goal_type" not in df:
+        df["goal_type"] = "amount"
+    df["goal_type"] = df["goal_type"].fillna("amount")
+    df["cat_goal"] = df["category"] + "|" + df["goal_type"]
     for cat in CATEGORIES:
         df[f"weekend_{cat}"] = ((df["category"] == cat) & (df["is_weekend"] == 1)).astype(int)
-    typical = df["category"].map(TYPICAL_HOUR)
-    hours_later = (df["target_hour"] - typical).fillna(0)   # unknown category -> no hour effect
-    for cat in HOUR_CATEGORIES:
-        df[f"hour_{cat}"] = hours_later.where(df["category"] == cat, 0.0)
     return df
