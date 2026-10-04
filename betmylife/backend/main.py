@@ -155,6 +155,27 @@ class BadgeClaimResponse(BaseModel):
     wallet: int
 
 
+class ChallengeCreateRequest(BaseModel):
+    title: str = Field(min_length=5, max_length=1000)
+    category: Literal["Study", "Fitness", "Lifestyle"]
+    difficulty: int = Field(ge=1, le=5)
+    confidence: int = Field(ge=0, le=100)
+    visibility: Literal["public", "friends"] = "public"
+    deadline_at: str
+    deadline_label: str = Field(min_length=1, max_length=120)
+    probability: float = Field(ge=0, le=100)
+    yes_odds: float = Field(gt=0)
+    no_odds: float = Field(gt=0)
+    analysis: dict | None = None
+    proof_plan: dict | None = None
+
+
+class ChallengeResponse(ChallengeCreateRequest):
+    id: str
+    user_id: str
+    created_at: str
+
+
 def is_profile_complete(user: dict) -> bool:
     return bool(user.get("nickname") and user.get("age") and user.get("gender"))
 
@@ -314,8 +335,7 @@ def get_app_state(user_id: str) -> dict | None:
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
-            user = cursor.fetchone()
-            if user is None:
+            if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute(
                 "SELECT version, state_json FROM user_app_states WHERE user_id = %s",
@@ -392,6 +412,63 @@ def save_app_state(user_id: str, request: AppStateRequest) -> dict[str, str]:
           connection.rollback()
           raise
     return {"status": "saved"}
+
+
+
+def _challenge_response(row: dict) -> ChallengeResponse:
+    return ChallengeResponse(
+        id=row["id"], user_id=row["user_id"], title=row["title"],
+        category=row["category"], difficulty=row["difficulty"], confidence=row["confidence"],
+        visibility=row["visibility"], deadline_at=row["deadline_at"].isoformat(),
+        deadline_label=row["deadline_label"], probability=float(row["probability"]),
+        yes_odds=float(row["yes_odds"]), no_odds=float(row["no_odds"]),
+        analysis=json.loads(row["analysis_json"]) if isinstance(row["analysis_json"], str) else row["analysis_json"],
+        proof_plan=json.loads(row["proof_plan_json"]) if isinstance(row["proof_plan_json"], str) else row["proof_plan_json"],
+        created_at=row["created_at"].isoformat(),
+    )
+
+
+@app.post("/users/{user_id}/challenges", response_model=ChallengeResponse, status_code=201)
+def create_challenge(user_id: str, request: ChallengeCreateRequest) -> ChallengeResponse:
+    challenge_id = str(uuid.uuid4())
+    try:
+        deadline_at = request.deadline_at.replace("Z", "+00:00")
+        from datetime import datetime
+        parsed_deadline = datetime.fromisoformat(deadline_at).replace(tzinfo=None)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail="deadline_at must be an ISO datetime") from error
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute(
+                """INSERT INTO challenges
+                (id, user_id, title, category, difficulty, confidence, visibility,
+                 deadline_at, deadline_label, probability, yes_odds, no_odds,
+                 analysis_json, proof_plan_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (challenge_id, user_id, request.title.strip(), request.category, request.difficulty,
+                 request.confidence, request.visibility, parsed_deadline, request.deadline_label,
+                 request.probability, request.yes_odds, request.no_odds,
+                 json.dumps(request.analysis, ensure_ascii=False) if request.analysis is not None else None,
+                 json.dumps(request.proof_plan, ensure_ascii=False) if request.proof_plan is not None else None),
+            )
+            cursor.execute("SELECT * FROM challenges WHERE id = %s", (challenge_id,))
+            return _challenge_response(cursor.fetchone())
+
+
+@app.get("/users/{user_id}/challenges", response_model=list[ChallengeResponse])
+def list_challenges(user_id: str, limit: int = 50, offset: int = 0) -> list[ChallengeResponse]:
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            cursor.execute("SELECT * FROM challenges WHERE user_id = %s ORDER BY created_at DESC LIMIT %s OFFSET %s", (user_id, limit, offset))
+            return [_challenge_response(row) for row in cursor.fetchall()]
 
 
 @app.get("/users/{user_id}/badges")
@@ -472,6 +549,7 @@ def claim_badge(user_id: str, badge_id: str) -> BadgeClaimResponse:
         created=created,
         wallet=wallet,
     )
+
 
 
 @app.get("/users/{user_id}/following", response_model=FollowingResponse)

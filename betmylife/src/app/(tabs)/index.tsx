@@ -13,10 +13,11 @@ import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
 import { friendDirectory } from "@/mock/friends";
+import { getChallenges } from "@/services/challenge-service";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     FlatList,
     Modal,
@@ -76,14 +77,51 @@ function StatTile({
 }
 
 export default function Home() {
-  const { state } = useAppState();
+  const { state, dispatch } = useAppState();
   const { locale, t } = useLanguage();
   const [filter, setFilter] = useState("Public");
   const [category, setCategory] = useState("All");
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [calendarVisible, setCalendarVisible] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const list = useRef<FlatList<Challenge>>(null);
+  useEffect(() => {
+    if (!state.authUserId) return;
+    let cancelled = false;
+    getChallenges(state.authUserId)
+      .then((items) => {
+        if (cancelled) return;
+        dispatch({
+          type: "replace-challenges",
+          challenges: items.map((item) => ({
+            id: item.id,
+            user: "Fuka",
+            avatar: "🌷",
+            color: c.lavender,
+            title: item.title,
+            category: item.category,
+            difficulty: item.difficulty,
+            confidence: item.confidence,
+            deadline: item.deadline_label,
+            deadlineAt: item.deadline_at,
+            probability: item.probability,
+            yesOdds: item.yes_odds.toFixed(2),
+            noOdds: item.no_odds.toFixed(2),
+            friends: 0,
+            visibility: item.visibility,
+            proofPlan: item.proof_plan ?? undefined,
+          })),
+        });
+        setLoadError("");
+      })
+      .catch((error) => {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "Could not load challenges.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, state.authUserId]);
   const featured = state.challenges.find((item) => item.id === "read-today");
   const friendNames = friendDirectory
     .filter((friend) => state.friendIds.includes(friend.id))
@@ -356,6 +394,7 @@ export default function Home() {
                   <Text style={styles.addChallengeText}>＋ Create</Text>
                 </Pressable>
               </View>
+              {!!loadError && <Text accessibilityRole="alert" style={{ color: c.red }}>{loadError}</Text>}
               <FeedTabs
                 options={["Public", "Friends", "My picks"]}
                 value={filter}

@@ -69,6 +69,7 @@ type Action =
   | { type: "settle-predictions"; challengeId: string; outcome: ChallengeOutcome; settledAt?: string }
   | { type: "settle-challenge"; challengeId: string; outcome: ChallengeOutcome; settledAt?: string; resolvedTimezone?: string; proofMethodsUsed?: string[]; aiProofVerified?: boolean }
   | { type: "create"; challenge: Challenge }
+  | { type: "replace-challenges"; challenges: Challenge[] }
   | { type: "delete"; id: string }
   | { type: "buy"; id: string }
   | { type: "equip"; id: string };
@@ -297,6 +298,8 @@ export function appReducer(state: State, action: Action): State {
         ...state,
         challenges: [{ ...action.challenge, ownerId: state.authUserId ?? undefined, createdAt: action.challenge.createdAt ?? new Date().toISOString() }, ...state.challenges],
       });
+    case "replace-challenges":
+      return finalizeTransition(state, { ...state, challenges: action.challenges });
     case "delete": {
       const nextChallenges = state.challenges.filter((challenge) => challenge.id !== action.id || challenge.user !== "Fuka");
       if (nextChallenges.length === state.challenges.length) return state;
