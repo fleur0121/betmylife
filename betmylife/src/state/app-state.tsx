@@ -4,7 +4,6 @@ import { BADGE_METADATA, type BadgeId } from "@/achievements/badge-metadata";
 import { rewards } from "@/constants/rewards";
 import type { CosmeticSlot } from "@/constants/rewards";
 import type { Challenge, Prediction, PredictionChoice } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
 import {
   getPredictionLockAt,
   isChallengeExpired,
@@ -193,7 +192,7 @@ export function appReducer(state: State, action: Action): State {
     case "dismiss-badge-notification":
       return { ...state, badgeNotifications: state.badgeNotifications.filter((id) => id !== action.badgeId) };
     case "add-friend": {
-      if (action.id === state.authUserId || state.friendIds.includes(action.id) || !friendDirectory.some((friend) => friend.id === action.id)) return state;
+      if (action.id === state.authUserId || state.friendIds.includes(action.id)) return state;
       return finalizeTransition(state, { ...state, friendIds: [...state.friendIds, action.id] });
     }
     case "place-prediction": {

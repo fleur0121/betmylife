@@ -6,7 +6,6 @@
 import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
 import type { Challenge } from "@/mock/data";
-import { friendDirectory } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -20,9 +19,6 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { t } = useLanguage();
   const ownChallenge = challenge.ownerId === state.authUserId;
   const selected = state.predictions[challenge.id];
-  const author = friendDirectory.find(
-    (friend) => friend.name === challenge.user,
-  );
   function removePost() {
     if (Platform.OS === "web") {
       if (globalThis.confirm(t("Delete this challenge?"))) {
@@ -44,8 +40,8 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${challenge.user}'s profile`}
-        onPress={() => (challenge.ownerId ?? author?.id) && router.push(`/user/${challenge.ownerId ?? author?.id}`)}
-        disabled={!challenge.ownerId && !author}
+        onPress={() => challenge.ownerId && router.push(`/user/${challenge.ownerId}`)}
+        disabled={!challenge.ownerId}
         style={({ pressed }) => [styles.author, pressed && s.pressed]}
       >
         <Avatar emoji={challenge.avatar} color={challenge.color} size={42} />
@@ -59,7 +55,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
               numberOfLines={1}
               style={[s.caption, { flexShrink: 1 }]}
             >
-              @{challenge.ownerUsername ?? author?.id ?? challenge.user.toLowerCase()}
+              @{challenge.ownerUsername ?? challenge.ownerId ?? "user"}
             </Text>
           </View>
           <Text style={s.caption}>◷ {challenge.deadline}</Text>
