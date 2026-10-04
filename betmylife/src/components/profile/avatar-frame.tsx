@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 
 export type FrameStyle = "default" | "purple_orbit" | "gold_star" | "fire" | "galaxy" | "electric" | "champion";
+export const AVATAR_FRAME_ART_SCALE = 2.5;
 const frameAssets: Record<FrameStyle, BrandAssetName> = {
   default: "framePurpleAura",
   purple_orbit: "framePurpleAura",
@@ -25,10 +26,10 @@ export function getFrameStyle(name?: string): FrameStyle {
 }
 
 export function AvatarFrame({ frame = "default", size = 96, asset, children }: PropsWithChildren<{ frame?: FrameStyle; size?: number; asset?: BrandAssetName }>) {
-  const overlaySize = size * 2.08;
+  const overlaySize = size * AVATAR_FRAME_ART_SCALE;
   return (
-    <View accessibilityLabel={`${frame.replace("_", " ")} avatar frame`} style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <View style={{ width: size * 0.49, height: size * 0.49, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>{children}</View>
+    <View accessibilityLabel={`${frame.replace("_", " ")} avatar frame`} style={{ width: size, height: size, alignItems: "center", justifyContent: "center", overflow: "visible" }}>
+      <View style={{ width: size * 0.49, height: size * 0.49, borderRadius: size * 0.245, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>{children}</View>
       <BrandAsset name={asset ?? frameAssets[frame]} style={{ position: "absolute", width: overlaySize, height: overlaySize, left: (size - overlaySize) / 2, top: (size - overlaySize) / 2 }} label={`${frame.replace("_", " ")} frame`} />
       {frame === "electric" && <BrandAsset name="decoSparkleBlue" style={{ position: "absolute", width: size * 0.34, height: size * 0.34, top: size * 0.03, right: size * 0.02 }} label="Electric frame sparkle" />}
       {frame === "champion" && <BrandAsset name="iconTrophy" style={{ position: "absolute", width: size * 0.34, height: size * 0.34, top: size * 0.01, right: size * 0.01 }} label="Champion frame trophy" />}

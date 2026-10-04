@@ -7,6 +7,7 @@ import { LanguageProvider } from '@/i18n/language';
 import { Redirect, Stack, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AppProvider, useAppState } from '@/state/app-state';
+import { AchievementToast } from '@/components/achievement-toast';
 import type { ReactNode } from 'react';
 export default function RootLayout() {
   return (
@@ -20,7 +21,9 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="habit-dna" />
             <Stack.Screen name="friends" />
+            <Stack.Screen name="badges" />
           </Stack>
+          <AchievementToast />
         </AuthGate>
       </AppProvider>
     </LanguageProvider>

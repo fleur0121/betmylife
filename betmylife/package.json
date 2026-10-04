@@ -42,7 +42,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test:achievements": "node --experimental-strip-types --test tests/achievements.test.mjs"
   },
   "private": true
 }

@@ -3,6 +3,7 @@
  * Purchases and equipped items remain connected to the existing local reducer.
  */
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
+import { BADGE_BY_ID, BADGES } from "@/achievements/badges";
 import { ChallengeCard } from "@/components/challenge-card";
 import { FeedTabs } from "@/components/feed-tabs";
 import { Text } from "@/components/localized-text";
@@ -16,9 +17,11 @@ import {
   type CosmeticSlot,
 } from "@/mock/data";
 import { myFriendId } from "@/mock/friends";
+import { AVATAR_FRAME_ART_SCALE } from "@/components/profile/avatar-frame";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
+import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
@@ -30,23 +33,7 @@ const futureSelves: { asset: BrandAssetName; label: string; color: string }[] =
     { asset: "mascotCheering", label: "CONFIDENT YOU", color: c.mint },
   ];
 
-const profileFrames: Record<string, BrandAssetName> = {
-  "Sunny Vibes Frame": "frameSunny",
-  "Purple Aura Frame": "framePurpleAura",
-  "Galaxy Frame": "frameGalaxy",
-  "Fire Frame": "frameFire",
-};
-
-const badges: { asset: BrandAssetName; label: string }[] = [
-  { asset: "badgeFirstChallenge", label: "FIRST CHALLENGE" },
-  { asset: "badgeThreeDayStreak", label: "3 DAY STREAK" },
-  { asset: "badgeSevenDayStreak", label: "7 DAY STREAK" },
-  { asset: "badgeKnowledgeBuilder", label: "KNOWLEDGE BUILDER" },
-  { asset: "badgeFitnessHero", label: "FITNESS HERO" },
-  { asset: "badgeEarlyBird", label: "EARLY BIRD" },
-  { asset: "badgeAiSlayer", label: "AI SLAYER" },
-  { asset: "badgeConsistency", label: "CONSISTENCY" },
-];
+const profileFrameArtSize = 76 * AVATAR_FRAME_ART_SCALE;
 
 export default function Profile() {
   const { state, dispatch } = useAppState();
@@ -54,10 +41,19 @@ export default function Profile() {
   const [nickname, setNickname] = useState("");
   const slots: CosmeticSlot[] = ["Frame", "Title", "Badge", "Background"];
   const owned = rewards.filter((item) => state.owned.includes(item.id));
+  const earnedBadgeCount = Object.keys(state.badgeUnlocks).length;
+  const recentBadges = Object.entries(state.badgeUnlocks)
+    .sort((left, right) => right[1]!.unlockedAt.localeCompare(left[1]!.unlockedAt))
+    .slice(0, 5)
+    .map(([id, unlock]) => ({ badge: BADGE_BY_ID[id], unlockedAt: unlock!.unlockedAt }))
+    .filter((item) => item.badge);
   const posts = state.challenges.filter(
     (challenge) => challenge.user === user.name,
   );
-  const activeFrame = profileFrames[state.equipped.Frame] ?? "framePurpleAura";
+  const activeFrame =
+    rewards.find(
+      (item) => item.slot === "Frame" && item.name === state.equipped.Frame,
+    )?.asset ?? "framePurpleAura";
 
   useEffect(() => {
     if (!state.authUserId) return;
@@ -94,9 +90,6 @@ export default function Profile() {
                 />
               </View>
               <BrandAsset name={activeFrame} style={styles.avatarFrame} />
-              <View style={styles.levelChip}>
-                <Text style={styles.levelText}>LEVEL 5</Text>
-              </View>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -123,7 +116,7 @@ export default function Profile() {
               <Text style={styles.titleValue}>{state.equipped.Title}</Text>
             </View>
             <View style={styles.badgeCount}>
-              <Text style={styles.badgeCountValue}>{badges.length}</Text>
+              <Text style={styles.badgeCountValue}>{earnedBadgeCount}/{BADGES.length}</Text>
               <Text style={styles.badgeCountLabel}>BADGES</Text>
             </View>
           </View>
@@ -299,9 +292,9 @@ export default function Profile() {
             <SectionHeader title="My badges" />
             <Pressable
               accessibilityRole="button"
-              onPress={() => router.push("/shop")}
+              onPress={() => router.push("/badges")}
             >
-              <Text style={styles.sectionLink}>SEE ALL →</Text>
+              <Text style={styles.sectionLink}>VIEW ALL →</Text>
             </Pressable>
           </View>
           <ScrollView
@@ -309,21 +302,24 @@ export default function Profile() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.badgeRow}
           >
-            {badges.map((badge) => (
-              <View key={badge.label} style={styles.badgeItem}>
-                <BrandAsset
-                  name={badge.asset}
+            {recentBadges.length ? recentBadges.map(({ badge }) => (
+              <View key={badge.id} style={styles.badgeItem}>
+                <Image
+                  source={badge.miniImage ?? badge.image}
+                  contentFit="contain"
                   style={styles.badgeArt}
-                  label={badge.label}
+                  accessibilityLabel={badge.name}
                 />
-                <Text style={styles.badgeLabel}>{badge.label}</Text>
+                <Text numberOfLines={2} style={styles.badgeLabel}>{badge.name}</Text>
               </View>
-            ))}
+            )) : (
+              <Text style={s.muted}>Earn your first badge to see it here.</Text>
+            )}
           </ScrollView>
 
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/shop")}
+            onPress={() => router.push("/closet")}
             style={({ pressed }) => [
               styles.collectionLink,
               pressed && s.pressed,
@@ -332,13 +328,13 @@ export default function Profile() {
             <BrandAsset name="iconShop" style={styles.collectionIcon} />
             <View style={s.flex}>
               <Text style={styles.collectionTitle}>
-                Make this profile yours
+                Explore the cloud closet
               </Text>
               <Text style={styles.collectionCopy}>
-                Frames, badges & little bits of magic
+                Mascots, frames, badges & stickers
               </Text>
             </View>
-            <Text style={styles.journeyLink}>SHOP →</Text>
+            <Text style={styles.journeyLink}>OPEN →</Text>
           </Pressable>
 
           <View style={styles.sectionHeading}>
@@ -490,7 +486,7 @@ const styles = StyleSheet.create({
     marginTop: -44,
     marginBottom: 6,
   },
-  avatarWrap: { width: 110, height: 110 },
+  avatarWrap: { width: 110, height: 110, overflow: "visible" },
   avatarCircle: {
     position: "absolute",
     top: 17,
@@ -506,22 +502,11 @@ const styles = StyleSheet.create({
   avatarMascot: { width: 82, height: 79 },
   avatarFrame: {
     position: "absolute",
-    width: 110,
-    height: 110,
-    top: 4,
-    left: 0,
+    width: profileFrameArtSize,
+    height: profileFrameArtSize,
+    top: (110 - profileFrameArtSize) / 2,
+    left: (110 - profileFrameArtSize) / 2,
   },
-  levelChip: {
-    position: "absolute",
-    top: 4,
-    right: -1,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    borderRadius: 11,
-    backgroundColor: c.yellow,
-    transform: [{ rotate: "6deg" }],
-  },
-  levelText: { color: c.text, fontSize: 8, fontWeight: "900" },
   friendsButton: {
     marginBottom: 7,
     paddingHorizontal: 13,

@@ -1,3 +1,5 @@
+import { BRAND_ASSET_GROUPS } from "@/components/brand-asset";
+
 /**
  * 画面で使うモックデータと、そのデータ構造を表すTypeScript型。
  * ユーザー、チャレンジ、リワード、初期装備、分析用の数値とヒントをまとめて定義する。
@@ -44,6 +46,7 @@ export type ProofMethod =
   | "self_report";
 export type VerificationLogic = "all" | "any";
 export type VerificationStrength = "basic" | "medium" | "strong";
+export type ChallengeResult = "success" | "failed";
 export type ProofRequirement = {
   id: string;
   method: ProofMethod;
@@ -118,6 +121,15 @@ export type Challenge = {
   visibility: Visibility;
   titleJa?: string;
   proofPlan?: VerificationPlan;
+  proofPlanSource?: "gemini" | "fallback" | "manual";
+  ownerId?: string;
+  createdAt?: string;
+  result?: ChallengeResult;
+  pointsSettled?: boolean;
+  resolvedAt?: string;
+  resolvedTimezone?: string;
+  proofMethodsUsed?: string[];
+  aiProofVerified?: boolean;
 };
 export const currentUser = {
   name: "Fuka",
@@ -312,6 +324,17 @@ export type Reward = {
   color: string;
   slot: CosmeticSlot;
 };
+function getFrameRewardName(asset: string) {
+  const frameName = asset
+    .replace(/^frame/, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/Ai/g, "AI")
+    .replace(/Classic/g, "")
+    .trim();
+  return `${frameName} Frame`;
+}
+
+const frameColors = ["#E9E5FA", "#DDF8EC", "#FFF3CE", "#E2F1FF", "#FCECEF"];
 export const rewards: Reward[] = [
   {
     id: "sunny-frame",
@@ -369,6 +392,16 @@ export const rewards: Reward[] = [
     color: "#E9E5FA",
     slot: "Badge",
   },
+  ...BRAND_ASSET_GROUPS.frames
+    .filter((asset) => asset !== "frameSunny" && asset !== "frameGalaxy")
+    .map((asset, index) => ({
+      id: `frame-${asset}`,
+      name: getFrameRewardName(asset),
+      price: 200 + index * 20,
+      asset,
+      color: frameColors[index % frameColors.length],
+      slot: "Frame" as const,
+    })),
 ];
 export const initialCosmetics: Record<CosmeticSlot, string> = {
   Frame: "Purple Aura Frame",

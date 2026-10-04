@@ -20,7 +20,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 
 export default function UserProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state } = useAppState();
+  const { state, dispatch } = useAppState();
   const [followingSnapshot, setFollowingSnapshot] = useState<{ userId: string; ids: string[] } | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
   const [followError, setFollowError] = useState("");
@@ -66,12 +66,14 @@ export default function UserProfile() {
         const body = await response.json().catch(() => null) as { detail?: string } | null;
         throw new Error(body?.detail ?? "Could not update follow status.");
       }
-      setFollowingSnapshot((current) => ({
-        userId: state.authUserId!,
-        ids: isFollowing
-          ? (current?.userId === state.authUserId ? current.ids : []).filter((followedId) => followedId !== id)
-          : [...(current?.userId === state.authUserId ? current.ids : []), id],
-      }));
+      const currentIds = followingSnapshot?.userId === state.authUserId
+        ? followingSnapshot.ids
+        : state.followingIds;
+      const nextIds = isFollowing
+        ? currentIds.filter((followedId) => followedId !== id)
+        : [...currentIds, id];
+      dispatch({ type: "set-following-ids", ids: nextIds });
+      setFollowingSnapshot({ userId: state.authUserId, ids: nextIds });
     } catch (error) {
       setFollowError(error instanceof Error ? error.message : "Could not update follow status.");
     } finally {

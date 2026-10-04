@@ -1,25 +1,21 @@
 {
   "expo": {
-    "name": "betmylife",
+    "name": "Predict My Life",
     "slug": "betmylife",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon-pml.png",
     "scheme": "betmylife",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png",
+      "icon": "./assets/images/app-icon-pml.png",
       "bundleIdentifier": "com.teamnagano.betmylife",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#208AEF",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
-      },
+      "icon": "./assets/images/app-icon-pml.png",
       "predictiveBackGestureEnabled": false,
       "package": "com.teamnagano.betmylife",
       "permissions": [
@@ -29,16 +25,16 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/app-icon-pml.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FBF9F6",
+          "image": "./assets/images/logo-stacked-sticker.png",
+          "imageWidth": 240
         }
       ],
       [

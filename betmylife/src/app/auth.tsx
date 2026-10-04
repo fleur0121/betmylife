@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { router } from "expo-router";
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from "react-native";
-import { BrandAsset } from "@/components/brand-asset";
+import { Image } from "expo-image";
 import { Text } from "@/components/localized-text";
 import { Button, Card, Screen } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
@@ -41,9 +41,14 @@ export default function AuthScreen() {
   }
 
   return (
-    <Screen title="Predict My Life">
+    <Screen title={mode === "register" ? "Create account" : "Log in"}>
       <View style={styles.hero}>
-        <BrandAsset name="mascotCheerful" style={styles.mascot} />
+        <Image
+          accessibilityLabel="Predict My Life"
+          contentFit="contain"
+          source={require("@/assets/images/logo-stacked-sticker.png")}
+          style={styles.logo}
+        />
         <Text style={styles.eyebrow}>YOUR LIFE, YOUR ODDS</Text>
         <Text style={styles.title}>{mode === "register" ? "Make a little promise." : "Welcome back."}</Text>
         <Text style={styles.copy}>Predict your everyday wins with friends.</Text>
@@ -69,7 +74,7 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   hero: { alignItems: "center", paddingVertical: 22, gap: 6 },
-  mascot: { width: 130, height: 112 },
+  logo: { width: 220, height: 150 },
   eyebrow: { color: c.primary, fontSize: 9, fontWeight: "900", letterSpacing: 1.2 },
   title: { color: c.text, fontSize: 27, fontWeight: "900", textAlign: "center", letterSpacing: -0.8 },
   copy: { color: c.muted, fontSize: 12 },

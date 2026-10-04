@@ -54,6 +54,7 @@ export default function Create() {
   const [created, setCreated] = useState(false);
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [proofPlan, setProofPlan] = useState<VerificationPlan | null>(null);
+  const [proofPlanSource, setProofPlanSource] = useState<"gemini" | "fallback" | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState("");
   const [analysis, setAnalysis] = useState<ChallengeNlpResult | null>(null);
@@ -132,8 +133,10 @@ export default function Create() {
       };
       try {
         setProofPlan(await generateProofPlan(input));
+        setProofPlanSource("gemini");
       } catch {
         setProofPlan(getFallbackProofPlan(input));
+        setProofPlanSource("fallback");
       }
     } catch {
       setProofError("We could not choose a proof yet. Please try again.");
@@ -168,6 +171,7 @@ export default function Create() {
         visibility,
         titleJa: locale === "ja" ? title.trim() : undefined,
         proofPlan,
+        proofPlanSource: proofPlanSource ?? "manual",
       },
     });
     setCreated(true);
@@ -177,6 +181,7 @@ export default function Create() {
     analysisContext.current = null;
     setError("");
     setProofPlan(null);
+    setProofPlanSource(null);
   }
   return (
     <KeyboardAvoidingView
@@ -443,7 +448,7 @@ export default function Create() {
             {proofLoading && (
               <Card style={styles.loadingCard}>
                 <BrandAsset
-                  name="statePredicting"
+                  name="stateAiAnalyzing"
                   style={styles.loadingArt}
                   label="Choosing your proof plan"
                 />

@@ -5,6 +5,7 @@
  */
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import { Image } from 'expo-image';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './localized-text';
 import { LanguageSwitch } from './language-switch';
@@ -44,10 +45,12 @@ export function ScreenHeader({
         </Pressable>
       )}
       {home ? (
-        <View style={styles.wordmark}>
-          <Text translate={false} style={styles.wordmarkTop}>Predict</Text>
-          <Text translate={false} style={styles.wordmarkBottom}>My Life<Text translate={false} style={styles.wordmarkSparkle}> ✦</Text></Text>
-        </View>
+        <Image
+          accessibilityLabel="Predict My Life"
+          contentFit="contain"
+          source={require('@/assets/images/logo-stacked-sticker.png')}
+          style={styles.wordmark}
+        />
       ) : (
         <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
           {title}
@@ -107,10 +110,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: c.text,
   },
-  wordmark: { flex: 1, minWidth: 0, justifyContent: 'center' },
-  wordmarkTop: { color: c.text, fontSize: 17, lineHeight: 18, fontWeight: '900', letterSpacing: -0.6 },
-  wordmarkBottom: { color: c.primary, fontSize: 17, lineHeight: 19, fontWeight: '900', letterSpacing: -0.5 },
-  wordmarkSparkle: { color: c.purple, fontSize: 13 },
+  wordmark: { flex: 1, minWidth: 0, maxWidth: 132, height: 58 },
   iconButton: { width: 38, height: 44, alignItems: 'center', justifyContent: 'center' },
   notificationDot: { position: 'absolute', top: 8, right: 6, width: 7, height: 7, borderRadius: 4, backgroundColor: c.coral, borderWidth: 1, borderColor: c.card },
   avatar: {

@@ -16,6 +16,7 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { AVATAR_FRAME_ART_SCALE } from "@/components/profile/avatar-frame";
 import { users } from "@/mock/data";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
@@ -43,6 +44,8 @@ export default function Leaderboard() {
       <View style={styles.podium}>
         {[1, 0, 2].map((index) => {
           const user = ranked[index];
+          const avatarSize = index === 0 ? 63 : 52;
+          const frameArtSize = avatarSize * AVATAR_FRAME_ART_SCALE;
           return (
             <View
               key={user.name}
@@ -59,7 +62,7 @@ export default function Leaderboard() {
                 <Avatar
                   emoji={user.avatar}
                   color={user.color}
-                  size={index === 0 ? 63 : 52}
+                  size={avatarSize}
                 />
                 <BrandAsset
                   name={
@@ -71,7 +74,15 @@ export default function Leaderboard() {
                       ] as BrandAssetName[]
                     )[index]
                   }
-                  style={styles.avatarFrame}
+                  style={[
+                    styles.avatarFrame,
+                    {
+                      width: frameArtSize,
+                      height: frameArtSize,
+                      left: (82 - frameArtSize) / 2,
+                      top: (82 - frameArtSize) / 2,
+                    },
+                  ]}
                 />
               </View>
               <Text translate={false} style={s.bold}>
@@ -146,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarFrame: { position: "absolute", width: 82, height: 82 },
+  avatarFrame: { position: "absolute" },
   pedestal: {
     width: "100%",
     borderTopLeftRadius: 18,

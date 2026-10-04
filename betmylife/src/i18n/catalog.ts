@@ -300,7 +300,6 @@ export const japanese: Record<string, string> = {
   Confidence: "自信度",
   "Read for 20 minutes": "20分読書する",
   "GROWING, GLOWING": "成長して、輝く",
-  "LEVEL 5": "レベル5",
   "little wins, so far": "これまでの小さな達成",
   LATEST: "最新",
   "LIVE CHECK-IN 📷": "ライブチェックイン 📷",

@@ -53,7 +53,7 @@ GET   /users/{user_id}/profile
 PATCH /users/{user_id}/profile
 ```
 
-`/db/init` creates the user, follow, and per-user app-state tables but does not create a demo account. This keeps real account creation separate from schema setup.
+`/db/init` creates the user, follow, per-user app-state, achievement, and point-ledger tables but does not create a demo account. This keeps real account creation separate from schema setup.
 
 After login, the mobile app loads and saves its challenges, predictions, balance, point activity, owned cosmetics, equipped cosmetics, and friend IDs through:
 
@@ -69,3 +69,15 @@ GET    /users/{user_id}/following
 PUT    /users/{user_id}/following/{followed_id}
 DELETE /users/{user_id}/following/{followed_id}
 ```
+
+Achievement unlocks are stored once per `(user_id, badge_id)` and badge reward
+transactions once per `(user_id, reason)`. The API returns earned badges and
+claims their one-time point rewards:
+
+```text
+GET  /users/{user_id}/badges
+POST /users/{user_id}/badges/{badge_id}/claim
+```
+
+After deploying this schema change, run `POST /db/init` once against the TiDB
+database before opening the updated app.

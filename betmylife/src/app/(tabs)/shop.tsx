@@ -48,7 +48,7 @@ export default function Shop() {
             accessibilityLiveRegion="polite"
             style={{ color: c.card, fontSize: 36, fontWeight: '800' }}
           >
-            ✦ {state.pointsBalance.toLocaleString()}{' '}
+            ✦ {state.wallet.toLocaleString()}{' '}
             <Text style={{ fontSize: 17 }}>PT</Text>
           </Text>
           <BrandAsset name="iconShop" style={{ width: 54, height: 54 }} />
@@ -63,9 +63,12 @@ export default function Shop() {
         onChange={setFilter}
       />
       {!!message && (
-        <Text accessibilityLiveRegion="polite" style={{ color: c.green }}>
-          {message}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <BrandAsset name="statePurchaseComplete" style={{ width: 58, height: 54 }} label="Purchase complete" />
+          <Text accessibilityLiveRegion="polite" style={{ color: c.green, flex: 1 }}>
+            {message}
+          </Text>
+        </View>
       )}
       <SectionHeader
         title={
@@ -79,7 +82,7 @@ export default function Shop() {
             reward={reward}
             owned={state.owned.includes(reward.id)}
             equipped={state.equipped[reward.slot] === reward.name}
-            affordable={state.pointsBalance >= reward.price}
+            affordable={state.wallet >= reward.price}
             onBuy={() => {
               dispatch({ type: 'buy', id: reward.id });
               setMessage(
@@ -95,12 +98,18 @@ export default function Shop() {
       </View>
       {!items.length && (
         <Card>
+          <BrandAsset name="stateNoRewards" style={{ width: 112, height: 96, alignSelf: 'center' }} label="No rewards in this collection yet" />
           <Text style={s.sectionTitle}>Your collection is waiting ✨</Text>
           <Text style={s.muted}>
             Pick something that feels like you. Your rewards will appear here.
           </Text>
         </Card>
       )}
+      <Button
+        secondary
+        label="Explore every illustration →"
+        onPress={() => router.push('/closet')}
+      />
       <Button
         secondary
         label="Customize my profile →"

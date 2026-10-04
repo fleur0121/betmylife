@@ -18,18 +18,21 @@ export default function ChallengeProofScreen() {
   const requirements = challenge?.proofPlan?.requirements ?? [];
   const [step, setStep] = useState(0);
   const [results, setResults] = useState<boolean[]>([]);
+  const [proofMethodsUsed, setProofMethodsUsed] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<ChallengeOutcome | null>(null);
   const finished = useRef(false);
   if (!challenge) return <Screen title="Challenge proof" back><Card><Text style={s.muted}>This challenge could not be found.</Text><Button label="Back home" onPress={() => router.replace("/(tabs)")} /></Card></Screen>;
   const rulePointChange = getChallengePointChange(challenge.difficulty, outcome ?? challenge.result ?? "success");
   const settledReason = (outcome ?? challenge.result) === "failed" ? "challenge_failure" : "challenge_success";
   const pointChange = state.transactions.find((item) => item.challengeId === challenge.id && item.reason === settledReason)?.amount ?? rulePointChange;
-  const nextResult = (passed: boolean) => {
+  const nextResult = (passed: boolean, method?: string) => {
     if (finished.current || challenge.pointsSettled || challenge.result) return;
     const next = [...results, passed];
+    const nextMethods = passed && method ? [...proofMethodsUsed, method] : proofMethodsUsed;
     const finalStep = step >= requirements.length - 1;
     if (!finalStep && (challenge.proofPlan?.logic !== "any" || !passed)) {
       setResults(next);
+      setProofMethodsUsed(nextMethods);
       setStep((value) => value + 1);
       return;
     }
@@ -37,8 +40,16 @@ export default function ChallengeProofScreen() {
     const result: ChallengeOutcome = success ? "success" : "failed";
     finished.current = true;
     setResults(next);
+    setProofMethodsUsed(nextMethods);
     setOutcome(result);
-    dispatch({ type: "settle-challenge", challengeId: challenge.id, outcome: result });
+    dispatch({
+      type: "settle-challenge",
+      challengeId: challenge.id,
+      outcome: result,
+      resolvedTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      proofMethodsUsed: nextMethods,
+      aiProofVerified: success && nextMethods.includes("ai_quiz"),
+    });
   };
   const settledOutcome = outcome ?? challenge.result;
   return (
@@ -68,7 +79,7 @@ export default function ChallengeProofScreen() {
       ) : requirements.length > 0 ? (
         <>
           <View style={styles.stepLabel}><Text style={styles.resultEyebrow}>PROOF RECIPE</Text><Text style={s.caption}>{step + 1} / {requirements.length}</Text></View>
-          <ProofRenderer requirement={requirements[step] as ProofRequirement} onComplete={(result) => nextResult(result.passed)} />
+          <ProofRenderer requirement={requirements[step] as ProofRequirement} onComplete={(result) => nextResult(result.passed, requirements[step]?.method)} />
           <Text style={styles.helper}>Your saved Proof Recipe determines whether this challenge succeeds.</Text>
         </>
       ) : (

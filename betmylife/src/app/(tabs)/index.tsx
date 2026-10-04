@@ -407,7 +407,11 @@ export default function Home() {
             <View style={styles.emptyFeed}>
               <BrandAsset
                 name={
-                  filter === "Friends" ? "stateNoFriends" : "stateNoChallenges"
+                  filter === "Friends"
+                    ? "stateNoFriends"
+                    : filter === "My picks"
+                      ? "stateNoPredictions"
+                      : "stateNoChallenges"
                 }
                 style={styles.emptyMascot}
               />

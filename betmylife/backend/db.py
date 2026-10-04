@@ -85,3 +85,27 @@ def init_db() -> None:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    user_id VARCHAR(64) NOT NULL,
+                    badge_id VARCHAR(64) NOT NULL,
+                    unlocked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    reward_points_granted INT NOT NULL DEFAULT 0,
+                    PRIMARY KEY (user_id, badge_id),
+                    INDEX idx_user_achievements_unlocked (user_id, unlocked_at)
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS point_transactions (
+                    user_id VARCHAR(64) NOT NULL,
+                    reason VARCHAR(120) NOT NULL,
+                    amount INT NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, reason),
+                    INDEX idx_point_transactions_created (user_id, created_at)
+                )
+                """
+            )
