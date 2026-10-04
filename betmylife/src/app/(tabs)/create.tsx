@@ -6,36 +6,36 @@
 import { BrandAsset } from "@/components/brand-asset";
 import { Text } from "@/components/localized-text";
 import {
-  Button,
-  Card,
-  PageHeading,
-  Screen,
-  Segments,
-  s,
+    Button,
+    Card,
+    PageHeading,
+    Screen,
+    Segments,
+    s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
 import { useLanguage } from "@/i18n/language";
 import type { Category, Visibility } from "@/mock/data";
 import { saveChallenge } from "@/services/challenge-service";
 import {
-  analyzeChallenge,
-  type ChallengeNlpRequest,
-  type ChallengeNlpResult,
+    analyzeChallenge,
+    type ChallengeNlpRequest,
+    type ChallengeNlpResult,
 } from "@/services/challenge-nlp";
 import { useAppState } from "@/state/app-state";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 export default function Create() {
-  const { locale, t } = useLanguage();
+  const { t } = useLanguage();
   const { state, dispatch } = useAppState();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Study");
@@ -74,6 +74,7 @@ export default function Create() {
     const now = new Date();
     const localDate = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(now);
     const key = JSON.stringify([text, timezone, localDate]);
+    if (analysis && analysisContext.current?.key === key) return analysis;
     if (analysisContext.current?.key !== key) {
       analysisContext.current = { key, request: { text, timezone, submitted_at: now.toISOString() } };
     }
@@ -131,7 +132,7 @@ export default function Create() {
     try {
       savedChallenge = await saveChallenge({
         userId: state.authUserId,
-        title,
+        title: title.trim(),
         category,
         difficulty,
         confidence,
@@ -139,17 +140,6 @@ export default function Create() {
         deadlineAt,
         deadlineLabel: resolvedDeadline,
         analysis: postedAnalysis ?? analysis,
-        userInput: {
-          schema_version: 1,
-          title,
-          category,
-          difficulty,
-          confidence,
-          visibility,
-          deadline_at: deadlineAt,
-          deadline_label: resolvedDeadline,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        },
       });
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save your challenge.");
@@ -167,13 +157,13 @@ export default function Create() {
         difficulty,
         confidence,
         deadline: resolvedDeadline,
-        deadlineAt: parseChallengeDeadline(resolvedDeadline)?.toISOString(),
+        deadlineAt: savedChallenge.deadline_at,
         probability: savedChallenge.probability,
-        yesOdds: Number(savedChallenge.yes_odds).toFixed(2),
-        noOdds: Number(savedChallenge.no_odds).toFixed(2),
+        predictionSource: savedChallenge.prediction_source,
+        yesOdds: savedChallenge.yes_odds.toFixed(2),
+        noOdds: savedChallenge.no_odds.toFixed(2),
         friends: 0,
         visibility,
-        titleJa: locale === "ja" ? title.trim() : undefined,
       },
     });
     setCreated(true);
@@ -268,9 +258,10 @@ export default function Create() {
                   {error}
                 </Text>
               )}
-              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Analyzing…" : "Analyze"} onPress={() => void analyzeInput()} />
+              <Text style={s.caption}>AI suggestions help turn your goal into clear, achievable steps.</Text>
+              <Button secondary disabled={analyzing || !title.trim()} label={analyzing ? "Getting suggestions…" : "Get AI suggestions"} onPress={() => void analyzeInput()} />
               {!!analysisError && <Text accessibilityRole="alert" style={{ color: c.red }}>{analysisError}</Text>}
-              {analysis && <Text style={s.caption}>Analysis complete.</Text>}
+              {analysis && <Text style={s.caption}>AI suggestions</Text>}
               {analysis && [...analysis.data.clarification_questions, ...analysis.data.actions.flatMap((action) => action.clarification_questions)].map((question, index) => (
                 <Text key={`${index}-${question}`} translate={false} style={s.caption}>{question}</Text>
               ))}
@@ -373,9 +364,10 @@ export default function Create() {
                 accessibilityRole="adjustable"
                 accessibilityLabel={t("Confidence")}
                 accessibilityValue={{ min: 0, max: 100, now: confidence }}
-                onLayout={(event) => {
-                  confidenceTrackWidth.current = event.nativeEvent.layout.width;
-                }
+                onLayout={(event) =>
+                  {
+                    confidenceTrackWidth.current = event.nativeEvent.layout.width;
+                  }
                 }
                 onStartShouldSetResponder={() => true}
                 onStartShouldSetResponderCapture={() => true}
