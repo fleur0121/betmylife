@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -165,9 +166,9 @@ class ChallengeCreateRequest(BaseModel):
     visibility: Literal["public", "friends"] = "public"
     deadline_at: str
     deadline_label: str = Field(min_length=1, max_length=120)
-    probability: float = Field(ge=0, le=100)
-    yes_odds: float = Field(gt=0)
-    no_odds: float = Field(gt=0)
+    probability: float = Field(default=50, ge=0, le=100)
+    yes_odds: float = Field(default=2, gt=0)
+    no_odds: float = Field(default=2, gt=0)
     user_input: dict | None = None
     analysis: dict | None = None
     proof_plan: dict | None = None
@@ -253,6 +254,83 @@ def _stored_text(value: object, max_length: int = 40) -> str | None:
         return None
     normalized = value.strip()
     return normalized if normalized and len(normalized) <= max_length else None
+
+
+def _challenge_prediction_context(request: ChallengeCreateRequest) -> dict[str, object]:
+    analysis_data = request.analysis.get("data") if request.analysis else None
+    analysis_data = analysis_data if isinstance(analysis_data, dict) else {}
+    context = analysis_data.get("context")
+    context = context if isinstance(context, dict) else {}
+    actions = analysis_data.get("actions")
+    actions = actions if isinstance(actions, list) else []
+    action = next((item for item in actions if isinstance(item, dict)), {})
+    category = _stored_text(action.get("category")) or "other"
+
+    user_input = request.user_input or {}
+    timezone_name = user_input.get("timezone") or context.get("timezone")
+    try:
+        zone = ZoneInfo(timezone_name) if isinstance(timezone_name, str) else timezone.utc
+    except ZoneInfoNotFoundError:
+        zone = timezone.utc
+
+    event_time = None
+    times = action.get("times")
+    times = sorted(
+        (item for item in times if isinstance(item, dict)),
+        key=lambda item: item.get("kind") != "event",
+    ) if isinstance(times, list) else []
+    for item in times:
+        resolved_at = item.get("resolved_at")
+        if not isinstance(resolved_at, str):
+            continue
+        try:
+            event_time = datetime.fromisoformat(resolved_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=zone)
+        break
+
+    if event_time is None:
+        deadline = request.deadline_at.replace("Z", "+00:00")
+        try:
+            event_time = datetime.fromisoformat(deadline)
+        except ValueError:
+            event_time = datetime.now(timezone.utc)
+        if event_time.tzinfo is None:
+            event_time = event_time.replace(tzinfo=timezone.utc)
+
+    local_event_time = event_time.astimezone(zone)
+    return {
+        "category": category,
+        "target_hour": local_event_time.hour,
+        "day_of_week": local_event_time.weekday(),
+    }
+
+
+def _challenge_odds(user_id: str, request: ChallengeCreateRequest) -> tuple[float, float, float]:
+    neutral_odds = (50.0, 2.0, 2.0)
+    odds_api_url = os.getenv("ODDS_API_URL")
+    if not odds_api_url:
+        return neutral_odds
+
+    payload = {
+        "user_id": user_id,
+        **_challenge_prediction_context(request),
+    }
+    try:
+        response = httpx.post(odds_api_url, json=payload, timeout=8.0)
+        response.raise_for_status()
+        result = response.json()
+        probability = float(result["probability"])
+        yes_odds = float(result["yes_odds"])
+        no_odds = float(result["no_odds"])
+        if not (0 <= probability <= 100 and yes_odds > 0 and no_odds > 0):
+            raise ValueError("Odds service returned out-of-range values")
+        return probability, yes_odds, no_odds
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as error:
+        print(f"[odds] model unavailable; using neutral odds: {error}", flush=True)
+        return neutral_odds
 
 
 def _action_target_hour(action: dict, analysis: dict, challenge: dict) -> int | None:
@@ -540,6 +618,7 @@ def create_challenge(user_id: str, request: ChallengeCreateRequest) -> Challenge
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
+            probability, yes_odds, no_odds = _challenge_odds(user_id, request)
             user_input = request.user_input or {
                 "title": request.title,
                 "category": request.category,
@@ -557,7 +636,7 @@ def create_challenge(user_id: str, request: ChallengeCreateRequest) -> Challenge
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (challenge_id, user_id, request.title.strip(), request.category, request.difficulty,
                  request.confidence, request.visibility, parsed_deadline, request.deadline_label,
-                 request.probability, request.yes_odds, request.no_odds,
+                 probability, yes_odds, no_odds,
                  json.dumps(user_input, ensure_ascii=False),
                  json.dumps(request.analysis, ensure_ascii=False) if request.analysis is not None else None,
                  json.dumps(request.proof_plan, ensure_ascii=False) if request.proof_plan is not None else None),

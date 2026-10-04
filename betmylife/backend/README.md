@@ -100,5 +100,11 @@ or full NLP analysis is needed. Existing challenges are backfilled from their
 columns with `capture_status=backfilled_from_challenge_columns`; those snapshots
 are reconstructed records, not the original raw submission.
 
+Challenge creation asks the internal ML odds service for the extracted action
+category and its local event weekday/hour. The returned probability and fair
+odds are persisted on the challenge and returned to the app. If the service is
+unavailable, creation safely uses a neutral 50/50 estimate. The app's broad
+Study/Fitness/Lifestyle category is not substituted for the extracted behavior.
+
 After deploying this schema change, run `POST /db/init` once against the TiDB
 database before opening the updated app.

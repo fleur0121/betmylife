@@ -231,6 +231,20 @@ def general_priors_for_challenge(
     }
 
 
+def personal_features_for_challenge(history, challenge, population):
+    """Build Personal Model features with training-time General priors."""
+    general_priors = general_priors_for_challenge(
+        population,
+        challenge,
+    )
+    features = build_history_features(
+        history=history,
+        challenge=challenge,
+        general_priors=general_priors,
+    )
+    return features, general_priors
+
+
 def build_training_data(df):
     """
     Convert historical Fitbit challenges into
@@ -286,13 +300,6 @@ def build_training_data(df):
             # General Context Priors
             # -----------------------------------------
 
-            general_priors = (
-                general_priors_for_challenge(
-                    population,
-                    challenge_row,
-                )
-            )
-
             # -----------------------------------------
             # Current challenge
             # -----------------------------------------
@@ -316,10 +323,10 @@ def build_training_data(df):
             # General + Personal History
             # -----------------------------------------
 
-            features = build_history_features(
+            features, general_priors = personal_features_for_challenge(
                 history=history,
                 challenge=challenge,
-                general_priors=general_priors,
+                population=population,
             )
 
             # -----------------------------------------
