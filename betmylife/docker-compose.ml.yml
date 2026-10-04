@@ -1,0 +1,23 @@
+# Add the ML prediction service to the existing repository-root compose file:
+# docker compose -f docker-compose.yml -f betmylife/docker-compose.ml.yml up --build
+services:
+  api:
+    environment:
+      ML_API_URL: http://ml-api:8000/predict
+    depends_on:
+      ml-api:
+        condition: service_healthy
+
+  ml-api:
+    build:
+      context: ./betmylife
+      dockerfile: ml-api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${ML_API_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s

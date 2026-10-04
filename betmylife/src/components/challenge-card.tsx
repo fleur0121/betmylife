@@ -116,7 +116,13 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           <Text style={s.caption}>
             Their confidence {challenge.confidence}%
           </Text>
-          <Text style={s.caption}>Mock estimate</Text>
+          <Text style={s.caption}>
+            {!challenge.predictionSource
+              ? "Demo estimate"
+              : challenge.predictionSource === "fallback"
+                ? "Fallback estimate"
+                : "ML model estimate"}
+          </Text>
         </View>
       </View>
       <View style={styles.voteLabel}>

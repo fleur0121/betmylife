@@ -114,6 +114,7 @@ export type Challenge = {
   deadlineAt?: string;
   confidence: number;
   probability: number;
+  predictionSource?: string;
   yesOdds: string;
   noOdds: string;
   friends: number;

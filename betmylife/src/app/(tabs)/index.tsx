@@ -109,11 +109,14 @@ export default function Home() {
             deadline: item.deadline_label,
             deadlineAt: item.deadline_at,
             probability: item.probability,
+            predictionSource: item.prediction_source,
             yesOdds: item.yes_odds.toFixed(2),
             noOdds: item.no_odds.toFixed(2),
             friends: 0,
             visibility: item.visibility,
             proofPlan: item.proof_plan ?? undefined,
+            result: item.result ?? undefined,
+            resolvedAt: item.resolved_at ?? undefined,
           })),
         });
         setLoadError("");
@@ -214,6 +217,7 @@ export default function Home() {
                 </View>
                 <View style={styles.dateControls}>
                   <ScrollView
+                    style={styles.dateScroll}
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.dateRow}
@@ -319,6 +323,13 @@ export default function Home() {
                       >
                         <Text style={styles.monthArrow}>›</Text>
                       </Pressable>
+                    </View>
+                    <View style={styles.calendarWeekdays}>
+                      {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => (
+                        <View key={`${day}-${index}`} style={styles.calendarWeekday}>
+                          <Text style={styles.calendarWeekdayText}>{day}</Text>
+                        </View>
+                      ))}
                     </View>
                     <View style={styles.calendarGrid}>
                       {calendarDays(calendarMonth).map((date, index) =>
@@ -569,8 +580,8 @@ const styles = StyleSheet.create({
   },
   friendsLinkText: { color: c.primary, fontSize: 10, fontWeight: "800" },
   dateControls: { flexDirection: "row", alignItems: "center", gap: 6 },
+  dateScroll: { flex: 1, minWidth: 0 },
   dateRow: {
-    flexGrow: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 7,
@@ -600,10 +611,14 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     justifyContent: "center",
-    padding: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 22,
     backgroundColor: "rgba(40,35,60,0.38)",
   },
   calendarCard: {
+    width: "100%",
+    maxWidth: 380,
+    alignSelf: "center",
     padding: 18,
     borderRadius: 22,
     backgroundColor: c.card,
@@ -624,11 +639,19 @@ const styles = StyleSheet.create({
   },
   monthArrow: { color: c.primaryDark, fontSize: 28, lineHeight: 30 },
   monthTitle: { color: c.text, fontSize: 17, fontWeight: "900" },
-  calendarGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  calendarWeekdays: { flexDirection: "row", marginBottom: 2 },
+  calendarWeekday: {
+    width: "14.2857%",
+    minHeight: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarWeekdayText: { color: c.muted, fontSize: 11, fontWeight: "800" },
+  calendarGrid: { flexDirection: "row", flexWrap: "wrap" },
   calendarDay: {
-    width: "13.4%",
+    width: "14.2857%",
     aspectRatio: 1,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },

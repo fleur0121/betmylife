@@ -11,15 +11,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
+try:
+    from .ml_prediction import build_history, build_prediction_features, request_prediction
+except ImportError:
+    from ml_prediction import build_history, build_prediction_features, request_prediction
 
 try:
     from .challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 except ImportError:
     from challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 try:
-    from .dbv2 import get_connection, init_db
-except ImportError:  # Supports `uvicorn mainv2:app` from the backend directory.
-    from dbv2 import get_connection, init_db
+    from .db import get_connection, init_db
+except ImportError:  # Supports `uvicorn main:app` from the backend directory.
+    from db import get_connection, init_db
 
 load_dotenv()
 cors_origins = [
@@ -190,17 +194,27 @@ class ChallengeCreateRequest(BaseModel):
     visibility: Literal["public", "friends"] = "public"
     deadline_at: str
     deadline_label: str = Field(min_length=1, max_length=120)
-    probability: float = Field(ge=0, le=100)
-    yes_odds: float = Field(gt=0)
-    no_odds: float = Field(gt=0)
     analysis: dict | None = None
     proof_plan: dict | None = None
+    user_input: dict | None = None
 
 
 class ChallengeResponse(ChallengeCreateRequest):
     id: str
     user_id: str
     created_at: str
+    probability: float
+    yes_odds: float
+    no_odds: float
+    prediction_source: str = "fallback"
+    prediction_model_version: str | None = None
+    prediction_meta: dict | None = None
+    result: Literal["success", "failed"] | None = None
+    resolved_at: str | None = None
+
+
+class ChallengeResultRequest(BaseModel):
+    result: Literal["success", "failed"]
 
 
 def is_profile_complete(user: dict) -> bool:
@@ -520,6 +534,16 @@ def save_app_state(user_id: str, request: AppStateRequest) -> dict[str, str]:
 
 
 def _challenge_response(row: dict) -> ChallengeResponse:
+    def load_json(name: str):
+        value = row.get(name)
+        if isinstance(value, (str, bytes, bytearray)):
+            try:
+                return json.loads(value)
+            except (ValueError, TypeError):
+                return None
+        return value
+
+    resolved_at = row.get("resolved_at")
     return ChallengeResponse(
         id=row["id"],
         user_id=row["user_id"],
@@ -533,16 +557,14 @@ def _challenge_response(row: dict) -> ChallengeResponse:
         probability=float(row["probability"]),
         yes_odds=float(row["yes_odds"]),
         no_odds=float(row["no_odds"]),
-        analysis=(
-            json.loads(row["analysis_json"])
-            if isinstance(row["analysis_json"], str)
-            else row["analysis_json"]
-        ),
-        proof_plan=(
-            json.loads(row["proof_plan_json"])
-            if isinstance(row["proof_plan_json"], str)
-            else row["proof_plan_json"]
-        ),
+        analysis=load_json("analysis_json"),
+        proof_plan=load_json("proof_plan_json"),
+        user_input=load_json("user_input_json"),
+        prediction_source=row.get("prediction_source") or "fallback",
+        prediction_model_version=row.get("prediction_model_version"),
+        prediction_meta=load_json("prediction_meta_json"),
+        result=row.get("result"),
+        resolved_at=_timestamp(resolved_at) if resolved_at else None,
         created_at=row["created_at"].isoformat(),
     )
 
@@ -558,26 +580,61 @@ def create_challenge(
     challenge_id = str(uuid.uuid4())
     try:
         deadline_at = request.deadline_at.replace("Z", "+00:00")
-        from datetime import datetime
+        from datetime import datetime, timezone
 
-        parsed_deadline = datetime.fromisoformat(deadline_at).replace(
-            tzinfo=None
-        )
+        parsed_deadline = datetime.fromisoformat(deadline_at)
+        if parsed_deadline.tzinfo is None:
+            parsed_deadline = parsed_deadline.replace(tzinfo=timezone.utc)
+        prediction_deadline = parsed_deadline
+        parsed_deadline = parsed_deadline.astimezone(timezone.utc).replace(tzinfo=None)
     except ValueError as error:
         raise HTTPException(
             status_code=422, detail="deadline_at must be an ISO datetime"
         ) from error
+    features = build_prediction_features(
+        request.title, request.category, request.difficulty, request.confidence,
+        prediction_deadline, request.analysis, request.user_input,
+    )
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="User not found")
+            analysis_data = _state_data((request.analysis or {}).get("data")) or (request.analysis or {})
+            analysis_actions = analysis_data.get("actions") or []
+            primary_action = (
+                analysis_actions[0]
+                if analysis_actions and isinstance(analysis_actions[0], dict)
+                else {}
+            )
+            history = build_history(
+                cursor, user_id, features["category"],
+                primary_action.get("subcategory"),
+                features["goal_type"], features.get("goal_unit"),
+            )
+    prediction = request_prediction(features, history)
+    probability = round(float(prediction["success_probability"]) * 100, 2)
+    prediction_meta = {
+        "breakdown": prediction.get("breakdown", {}),
+        "ml_request": prediction.get("request", {**features, "history": history}),
+        "difficulty_used": prediction.get("difficulty_used", request.difficulty),
+        "category": prediction.get("category", features["category"]),
+        "goal_type": prediction.get("goal_type", features["goal_type"]),
+    }
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id FROM users WHERE id = %s", (user_id,)
+            )
             if cursor.fetchone() is None:
                 raise HTTPException(status_code=404, detail="User not found")
             cursor.execute(
                 """INSERT INTO challenges
                 (id, user_id, title, category, difficulty, confidence, visibility,
                  deadline_at, deadline_label, probability, yes_odds, no_odds,
-                 analysis_json, proof_plan_json)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                 analysis_json, proof_plan_json, user_input_json, prediction_source,
+                 prediction_model_version, prediction_meta_json)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (
                     challenge_id,
                     user_id,
@@ -588,9 +645,9 @@ def create_challenge(
                     request.visibility,
                     parsed_deadline,
                     request.deadline_label,
-                    request.probability,
-                    request.yes_odds,
-                    request.no_odds,
+                    probability,
+                    prediction["yes_odds"],
+                    prediction["no_odds"],
                     (
                         json.dumps(request.analysis, ensure_ascii=False)
                         if request.analysis is not None
@@ -601,6 +658,10 @@ def create_challenge(
                         if request.proof_plan is not None
                         else None
                     ),
+                    json.dumps(request.user_input or {}, ensure_ascii=False),
+                    prediction["prediction_source"],
+                    prediction.get("model_version"),
+                    json.dumps(prediction_meta, ensure_ascii=False),
                 ),
             )
             cursor.execute(
@@ -625,6 +686,90 @@ def list_challenges(
                 (user_id, limit, offset),
             )
             return [_challenge_response(row) for row in cursor.fetchall()]
+
+
+@app.post("/users/{user_id}/challenges/{challenge_id}/result")
+def record_challenge_result(
+    user_id: str, challenge_id: str, request: ChallengeResultRequest
+) -> dict[str, object]:
+    """Record the verified outcome once so later predictions learn from it."""
+    from datetime import datetime, timezone
+
+    with get_connection() as connection:
+        try:
+            connection.begin()
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM challenges WHERE id = %s AND user_id = %s FOR UPDATE",
+                    (challenge_id, user_id),
+                )
+                challenge = cursor.fetchone()
+                if challenge is None:
+                    raise HTTPException(status_code=404, detail="Challenge not found")
+                if challenge.get("result") and challenge["result"] != request.result:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Challenge already has a different result",
+                    )
+                created = challenge.get("result") is None
+                resolved_at = challenge.get("resolved_at") or datetime.now(
+                    timezone.utc
+                ).replace(tzinfo=None)
+                if created:
+                    cursor.execute(
+                        "UPDATE challenges SET result = %s, resolved_at = %s WHERE id = %s",
+                        (request.result, resolved_at, challenge_id),
+                    )
+                metadata = _state_data(challenge.get("prediction_meta_json"))
+                features = _state_data(metadata.get("ml_request"))
+                analysis = _state_data(challenge.get("analysis_json"))
+                data = _state_data(analysis.get("data")) or analysis
+                actions = data.get("actions") or []
+                action = actions[0] if actions and isinstance(actions[0], dict) else {}
+                history_features = features or {
+                    "category": "other",
+                    "goal_type": "task",
+                    "goal_value": None,
+                    "goal_unit": None,
+                    "target_hour": None,
+                    "day_of_week": None,
+                }
+                observation_id = hashlib.sha256(
+                    f"app:{user_id}:{challenge_id}".encode("utf-8")
+                ).hexdigest()
+                cursor.execute(
+                    """INSERT IGNORE INTO ml_observations
+                    (id, source, user_id, challenge_id, occurred_at, app_category,
+                     category, subcategory, goal, goal_unit, goal_type, target_hour,
+                     day_of_week, success)
+                    VALUES (%s, 'app', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (
+                        observation_id,
+                        user_id,
+                        challenge_id,
+                        resolved_at,
+                        challenge["category"],
+                        history_features.get("category", "other"),
+                        action.get("subcategory"),
+                        history_features.get("goal_value"),
+                        history_features.get("goal_unit"),
+                        history_features.get("goal_type"),
+                        int(history_features["target_hour"])
+                        if history_features.get("target_hour") is not None
+                        else None,
+                        history_features.get("day_of_week"),
+                        1 if request.result == "success" else 0,
+                    ),
+                )
+                connection.commit()
+                return {
+                    "status": "recorded",
+                    "result": request.result,
+                    "created": created,
+                }
+        except Exception:
+            connection.rollback()
+            raise
 
 
 @app.get("/users/{user_id}/badges")

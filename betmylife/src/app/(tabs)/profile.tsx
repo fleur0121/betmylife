@@ -153,11 +153,14 @@ export default function Profile() {
           deadline: item.deadline_label,
           deadlineAt: item.deadline_at,
           probability: item.probability,
+          predictionSource: item.prediction_source,
           yesOdds: item.yes_odds.toFixed(2),
           noOdds: item.no_odds.toFixed(2),
           friends: 0,
           visibility: item.visibility,
           proofPlan: item.proof_plan ?? undefined,
+          result: item.result ?? undefined,
+          resolvedAt: item.resolved_at ?? undefined,
           })),
         });
       } else {

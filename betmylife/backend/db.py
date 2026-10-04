@@ -128,6 +128,12 @@ def init_db() -> None:
                     no_odds DECIMAL(8,2) NOT NULL DEFAULT 2,
                     analysis_json JSON NULL,
                     proof_plan_json JSON NULL,
+                    user_input_json JSON NULL,
+                    prediction_source VARCHAR(40) NOT NULL DEFAULT 'fallback',
+                    prediction_model_version VARCHAR(80) NULL,
+                    prediction_meta_json JSON NULL,
+                    result VARCHAR(16) NULL,
+                    resolved_at DATETIME(6) NULL,
                     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
                     updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
                         ON UPDATE CURRENT_TIMESTAMP(6),
@@ -136,3 +142,53 @@ def init_db() -> None:
                     CONSTRAINT fk_challenges_user FOREIGN KEY (user_id) REFERENCES users(id)
                 )
                 """)
+            for column, definition in (
+                ("user_input_json", "JSON NULL"),
+                ("prediction_source", "VARCHAR(40) NOT NULL DEFAULT 'fallback'"),
+                ("prediction_model_version", "VARCHAR(80) NULL"),
+                ("prediction_meta_json", "JSON NULL"),
+                ("result", "VARCHAR(16) NULL"),
+                ("resolved_at", "DATETIME(6) NULL"),
+            ):
+                cursor.execute(f"SHOW COLUMNS FROM challenges LIKE '{column}'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE challenges ADD COLUMN {column} {definition}")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS ml_observations (
+                    id VARCHAR(64) PRIMARY KEY,
+                    source VARCHAR(32) NOT NULL,
+                    user_id VARCHAR(64) NOT NULL,
+                    challenge_id VARCHAR(64) NULL,
+                    occurred_at DATETIME(6) NOT NULL,
+                    app_category VARCHAR(40) NULL,
+                    category VARCHAR(40) NOT NULL,
+                    subcategory VARCHAR(40) NULL,
+                    goal DOUBLE NULL,
+                    goal_unit VARCHAR(40) NULL,
+                    goal_type VARCHAR(24) NULL,
+                    target_hour TINYINT NULL,
+                    day_of_week TINYINT NULL,
+                    weather VARCHAR(40) NULL,
+                    hours_until_deadline DECIMAL(10,2) NULL,
+                    success TINYINT NOT NULL,
+                    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    INDEX idx_ml_observations_user_time (user_id, occurred_at),
+                    INDEX idx_ml_observations_category_time (category, occurred_at),
+                    INDEX idx_ml_observations_source (source)
+                )
+                """)
+            for column, definition in (
+                ("app_category", "VARCHAR(40) NULL"),
+                ("subcategory", "VARCHAR(40) NULL"),
+                ("goal_unit", "VARCHAR(40) NULL"),
+                ("goal_type", "VARCHAR(24) NULL"),
+                ("day_of_week", "TINYINT NULL"),
+            ):
+                cursor.execute(f"SHOW COLUMNS FROM ml_observations LIKE '{column}'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE ml_observations ADD COLUMN {column} {definition}")
+            cursor.execute(
+                "UPDATE ml_observations SET app_category = category, category = 'other' "
+                "WHERE source = 'app' AND app_category IS NULL "
+                "AND category IN ('Study', 'Fitness', 'Lifestyle')"
+            )
