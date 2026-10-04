@@ -196,7 +196,7 @@ export default function Home() {
               )}
               <View style={styles.statsRow}>
                 <StatTile asset="iconStreak" value="21" label="DAY STREAK" color={c.peach} />
-                <StatTile asset="iconPoints" value={state.wallet.toLocaleString()} label="POINTS" color={c.cream} />
+                <StatTile asset="iconPoints" value={state.pointsBalance.toLocaleString()} label="POINTS" color={c.cream} />
                 <StatTile asset="iconPrediction" value="8" label="PREDICTIONS" color={c.lavender} />
               </View>
               <View style={styles.feedHeading}>

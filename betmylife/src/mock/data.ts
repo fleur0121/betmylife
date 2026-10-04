@@ -118,6 +118,20 @@ export type Challenge = {
   visibility: Visibility;
   titleJa?: string;
   proofPlan?: VerificationPlan;
+  result?: "success" | "failed";
+  pointsSettled?: boolean;
+};
+
+export type PointTransactionReason = "challenge_success" | "challenge_failure" | "prediction_stake" | "prediction_win" | "prediction_refund" | "shop_purchase";
+export type PointTransaction = {
+  id: string;
+  userId: string;
+  amount: number;
+  reason: PointTransactionReason;
+  challengeId?: string;
+  predictionId?: string;
+  itemId?: string;
+  createdAt: string;
 };
 export const currentUser = {
   name: "Fuka",
@@ -128,7 +142,7 @@ export const currentUser = {
   streak: 5,
   completed: 12,
 };
-export const initialWallet = 420;
+export const initialPointsBalance = 420;
 const demoClock = Date.now();
 const todayNinePm = new Date(demoClock);
 todayNinePm.setHours(21, 0, 0, 0);
@@ -307,6 +321,14 @@ export type Reward = {
 };
 export const rewards: Reward[] = [
   {
+    id: "purple-orbit-frame",
+    name: "Purple Orbit Frame",
+    price: 250,
+    asset: "framePurpleAura",
+    color: "#E9E5FA",
+    slot: "Frame",
+  },
+  {
     id: "sunny-frame",
     name: "Sunny Vibes Frame",
     price: 200,
@@ -322,6 +344,10 @@ export const rewards: Reward[] = [
     color: "#E9E5FA",
     slot: "Frame",
   },
+  { id: "fire-frame", name: "Fire Frame", price: 280, asset: "frameFire", color: "#FFE3D9", slot: "Frame" },
+  { id: "electric-frame", name: "Electric Frame", price: 300, asset: "frameGalaxy", color: "#DDF7FA", slot: "Frame" },
+  { id: "champion-frame", name: "Champion Frame", price: 400, asset: "frameSunny", color: "#FFF3CE", slot: "Frame" },
+  { id: "sunshine-background", name: "Sunshine Morning Background", price: 220, asset: "stickerBrighterDays", color: "#FFF0BA", slot: "Background" },
   {
     id: "focused-title",
     name: "Focused Title",

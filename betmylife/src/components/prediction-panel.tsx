@@ -54,7 +54,7 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
   const locked = currentPrediction
     ? isPredictionLocked(currentPrediction, challenge, new Date(now))
     : windowClosed;
-  const balanceForBet = state.wallet + (currentPrediction?.stake ?? 0);
+  const balanceForBet = state.pointsBalance + (currentPrediction?.stake ?? 0);
   const odds = choice === "yes" ? Number(challenge.yesOdds) : Number(challenge.noOdds);
   const stakeValidation = validateStake(stake, balanceForBet);
   const potentialReturn = Number.isFinite(odds) ? calculatePotentialReturn(stake, odds) : 0;

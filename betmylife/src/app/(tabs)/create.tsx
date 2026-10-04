@@ -20,6 +20,7 @@ import type { Category, VerificationPlan, Visibility } from "@/mock/data";
 import { demoCapabilities, getFallbackProofPlan } from "@/utils/fallback-proof-plan";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { generateProofPlan } from "@/services/proof-service";
+import { CHALLENGE_POINT_RULES } from "@/utils/points";
 import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -48,6 +49,7 @@ export default function Create() {
   const [proofPlan, setProofPlan] = useState<VerificationPlan | null>(null);
   const [proofLoading, setProofLoading] = useState(false);
   const [proofError, setProofError] = useState("");
+  const [showPointsGuide, setShowPointsGuide] = useState(false);
 
   function getResolvedDeadline() {
     if (deadline !== "Custom") {
@@ -259,7 +261,26 @@ export default function Create() {
                 <Text style={s.caption}>Easy win</Text>
                 <Text style={s.caption}>Big ambition</Text>
               </View>
+              <View style={styles.atStake}>
+                <Text style={styles.atStakeEyebrow}>POINTS AT STAKE ✦</Text>
+                <View style={styles.stakeOutcomes}>
+                  <View style={styles.stakeOutcome}><Text style={styles.stakeLabel}>COMPLETE IT</Text><Text style={styles.stakeGain}>+{CHALLENGE_POINT_RULES[difficulty as keyof typeof CHALLENGE_POINT_RULES].success} PT</Text></View>
+                  <View style={styles.stakeDivider} />
+                  <View style={styles.stakeOutcome}><Text style={styles.stakeLabel}>MISS IT</Text><Text style={styles.stakeLoss}>{CHALLENGE_POINT_RULES[difficulty as keyof typeof CHALLENGE_POINT_RULES].failure} PT</Text></View>
+                </View>
+                <Text style={styles.stakeFootnote}>Higher difficulty means a bigger reward and more at risk.</Text>
+              </View>
             </Card>
+            <Pressable accessibilityRole="button" accessibilityState={{ expanded: showPointsGuide }} onPress={() => setShowPointsGuide(!showPointsGuide)}>
+              <Text style={styles.pointsGuideToggle}>✦ HOW POINTS WORK {showPointsGuide ? "−" : "+"}</Text>
+            </Pressable>
+            {showPointsGuide && <Card style={styles.pointsGuide}>
+              <Text style={s.sectionTitle}>HOW POINTS WORK ✦</Text>
+              <View style={styles.guideHead}><Text style={styles.guideColumn}>DIFFICULTY</Text><Text style={styles.guideColumn}>COMPLETE</Text><Text style={styles.guideColumn}>MISS</Text></View>
+              {[1, 2, 3, 4, 5].map((level) => <View key={level} style={styles.guideRow}><Text style={styles.guideCell}>{"★".repeat(level)}{"☆".repeat(5 - level)}</Text><Text style={[styles.guideCell, { color: c.primary }]}>+{CHALLENGE_POINT_RULES[level as keyof typeof CHALLENGE_POINT_RULES].success} PT</Text><Text style={[styles.guideCell, { color: c.red }]}>{CHALLENGE_POINT_RULES[level as keyof typeof CHALLENGE_POINT_RULES].failure} PT</Text></View>)}
+              <Text style={s.caption}>Correct prediction: stake × locked odds. Wrong prediction: lose the stake.</Text>
+              <Text style={s.caption}>Spend PT on frames, badges, backgrounds and titles. Points have no cash value.</Text>
+            </Card>}
             <Card>
               <Text style={s.sectionTitle}>How confident are you?</Text>
                 <View style={styles.confidenceHeader}>
@@ -366,6 +387,21 @@ export default function Create() {
 const styles = StyleSheet.create({
   successArt: { alignSelf: "center", width: 152, height: 118 },
   loadingCard: { minHeight: 96, flexDirection: "row", alignItems: "center", gap: 12 },
+  atStake: { marginTop: 15, borderRadius: 17, backgroundColor: c.lavenderLight, padding: 12, borderWidth: 1, borderColor: "#E8E1FF" },
+  atStakeEyebrow: { color: c.primaryDark, fontSize: 9, letterSpacing: 0.8, fontWeight: "900" },
+  stakeOutcomes: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  stakeOutcome: { flex: 1, gap: 2 },
+  stakeDivider: { width: 1, height: 31, backgroundColor: "#D6CCF5", marginHorizontal: 12 },
+  stakeLabel: { color: c.muted, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
+  stakeGain: { color: c.primary, fontSize: 21, fontWeight: "900" },
+  stakeLoss: { color: c.red, fontSize: 21, fontWeight: "900" },
+  stakeFootnote: { color: c.muted, fontSize: 9, marginTop: 5 },
+  pointsGuideToggle: { alignSelf: "center", color: c.primaryDark, fontSize: 10, fontWeight: "900", padding: 10 },
+  pointsGuide: { gap: 8 },
+  guideHead: { flexDirection: "row", paddingBottom: 5, borderBottomWidth: 1, borderBottomColor: c.border },
+  guideRow: { flexDirection: "row", alignItems: "center", paddingVertical: 4 },
+  guideColumn: { flex: 1, color: c.muted, fontSize: 8, fontWeight: "900", textAlign: "center" },
+  guideCell: { flex: 1, color: c.text, fontSize: 9, fontWeight: "800", textAlign: "center" },
   loadingArt: { width: 72, height: 64 },
   authorAvatar: { width: 42, height: 42, borderRadius: 24, overflow: "hidden", backgroundColor: c.lavender, alignItems: "center", justifyContent: "center" },
   authorMascot: { width: 44, height: 44 },

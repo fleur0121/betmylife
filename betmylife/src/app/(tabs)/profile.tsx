@@ -5,7 +5,6 @@
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, View } from "react-native";
-import { SymbolView } from "expo-symbols";
 import { Text } from "@/components/localized-text";
 import { BrandAsset, type BrandAssetName } from "@/components/brand-asset";
 import { Button, Card, Screen, SectionHeader, s } from "@/components/ui-kit";
@@ -16,6 +15,7 @@ import { myFriendId } from "@/mock/friends";
 import { useAppState } from "@/state/app-state";
 import { palette as c } from "@/constants/design";
 import { API_URL } from "@/constants/api";
+import { AvatarFrame, getFrameStyle, SampleAvatar } from "@/components/profile/avatar-frame";
 
 const futureSelves: { asset: BrandAssetName; label: string; color: string }[] = [
   { asset: "mascotReading", label: "FOCUSED YOU", color: c.sky },
@@ -24,28 +24,25 @@ const futureSelves: { asset: BrandAssetName; label: string; color: string }[] = 
   { asset: "mascotCheering", label: "CONFIDENT YOU", color: c.mint },
 ];
 
-const profileFrames: Record<string, BrandAssetName> = {
-  "Sunny Vibes Frame": "frameSunny",
-  "Purple Aura Frame": "framePurpleAura",
-  "Galaxy Frame": "frameGalaxy",
-  "Fire Frame": "frameFire",
-};
-
 const badges: { asset: BrandAssetName; label: string }[] = [
   { asset: "badgeFirstChallenge", label: "FIRST CHALLENGE" },
   { asset: "badgeSevenDayStreak", label: "7 DAY STREAK" },
   { asset: "badgeKnowledgeBuilder", label: "KNOWLEDGE BUILDER" },
   { asset: "badgeFitnessHero", label: "FITNESS HERO" },
 ];
+const pointHistoryCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
 export default function Profile() {
   const { state, dispatch } = useAppState();
   const [tab, setTab] = useState("Overview");
   const [nickname, setNickname] = useState("");
+  const [showPointHistory, setShowPointHistory] = useState(false);
   const slots: CosmeticSlot[] = ["Frame", "Title", "Badge", "Background"];
   const owned = rewards.filter((item) => state.owned.includes(item.id));
   const posts = state.challenges.filter((challenge) => challenge.user === user.name);
-  const activeFrame = profileFrames[state.equipped.Frame] ?? "framePurpleAura";
+  const activeFrame = getFrameStyle(state.equipped.Frame);
+  const weeklyTransactions = state.transactions.filter((item) => new Date(item.createdAt).getTime() >= pointHistoryCutoff);
+  const weeklyFor = (reasons: string[]) => weeklyTransactions.filter((item) => reasons.includes(item.reason)).reduce((sum, item) => sum + item.amount, 0);
 
   useEffect(() => {
     if (!state.authUserId) return;
@@ -64,7 +61,7 @@ export default function Profile() {
   return (
     <Screen title="Your profile">
       <View style={styles.hero}>
-        <View style={styles.cover}>
+          <View style={[styles.cover, { backgroundColor: state.equipped.Background.toLowerCase().includes("sunshine") ? "#F4C844" : state.equipped.Background.toLowerCase().includes("lavender") ? c.lavender : c.primary }]}>
           <View style={styles.coverOrbit} />
           <BrandAsset name="mascotCelebrating" style={styles.coverMascot} />
           <View style={styles.coverNote}><Text style={styles.coverNoteText}>GROWING, GLOWING</Text></View>
@@ -72,10 +69,7 @@ export default function Profile() {
         <View style={styles.identity}>
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
-              <View style={styles.avatarCircle}>
-                <BrandAsset name="mascotCheerful" style={styles.avatarMascot} label="Fuka avatar" />
-              </View>
-              <BrandAsset name={activeFrame} style={styles.avatarFrame} />
+              <AvatarFrame frame={activeFrame} size={96}><SampleAvatar size={96} /></AvatarFrame>
               <View style={styles.levelChip}><Text style={styles.levelText}>LEVEL 5</Text></View>
             </View>
             <Pressable accessibilityRole="button" onPress={() => router.push("/friends")} style={({ pressed }) => [styles.friendsButton, pressed && s.pressed]}>
@@ -93,10 +87,30 @@ export default function Profile() {
       </View>
 
       <View style={styles.statsRow}>
-        <StatTile asset="iconPoints" value={state.wallet.toLocaleString()} label="POINTS" color={c.cream} />
+        <StatTile asset="iconPoints" value={state.pointsBalance.toLocaleString()} label="POINTS" color={c.cream} />
         <StatTile asset="iconConfidence" value={`${user.accuracy}%`} label="ACCURACY" color={c.lavender} />
         <StatTile asset="iconStreak" value={`${user.streak}`} label="DAY STREAK" color={c.peach} />
         <StatTile asset="iconChallenge" value={`${user.completed}`} label="CHALLENGES" color={c.mint} />
+      </View>
+
+      <View style={styles.pointsSummary}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showPointHistory }} onPress={() => setShowPointHistory((value) => !value)} style={styles.pointsSummaryHeader}>
+          <View><Text style={styles.journeyEyebrow}>ONE SHARED BALANCE</Text><Text style={styles.pointsSummaryValue}>{state.pointsBalance.toLocaleString()} PT</Text></View>
+          <Text style={styles.sectionLink}>{showPointHistory ? "HIDE −" : "THIS WEEK +"}</Text>
+        </Pressable>
+        {showPointHistory && <>
+          <View style={styles.pointsSummaryStats}>
+            <PointChange label="Challenges" value={weeklyFor(["challenge_success", "challenge_failure"])} />
+            <PointChange label="Predictions" value={weeklyFor(["prediction_stake", "prediction_win", "prediction_refund"])} />
+            <PointChange label="Shop" value={weeklyFor(["shop_purchase"])} />
+          </View>
+          {weeklyTransactions.slice(-4).reverse().map((item) => <View key={item.id} style={styles.transactionRow}>
+            <Text numberOfLines={1} style={s.flex}>{transactionLabel(item.reason)}</Text>
+            <Text style={[styles.transactionAmount, item.amount < 0 && { color: c.red }]}>{item.amount > 0 ? "+" : ""}{item.amount} PT</Text>
+          </View>)}
+          {!weeklyTransactions.length && <Text style={s.caption}>Point activity from the last seven days will appear here.</Text>}
+          <Text style={s.caption}>Challenge success earns PT; missing a goal may cost PT. Points have no cash value.</Text>
+        </>}
       </View>
 
       <FeedTabs options={["Overview", "My challenges"]} value={tab} onChange={setTab} />
@@ -137,10 +151,7 @@ export default function Profile() {
             {slots.map((slot, index) => (
               <View key={slot} style={[styles.styleRow, index > 0 && styles.styleDivider]}>
                 {slot === "Frame" ? (
-                  <View style={styles.framePreview}>
-                    <SymbolView name={{ ios: "person.fill", android: "person", web: "person" }} size={12} tintColor={c.primaryDark} />
-                    <BrandAsset name={activeFrame} style={styles.framePreviewImage} />
-                  </View>
+                  <AvatarFrame frame={activeFrame} size={36}><SampleAvatar size={36} /></AvatarFrame>
                 ) : (
                   <BrandAsset name={slot === "Title" ? "stickerFocused" : slot === "Badge" ? "badgeAiSlayer" : "stickerSmallSteps"} style={styles.styleIcon} />
                 )}
@@ -153,7 +164,7 @@ export default function Profile() {
             <View style={styles.ownedItems}>
               {owned.map((item) => (
                 <View key={item.id} style={styles.ownedRow}>
-                  <BrandAsset name={item.asset} style={styles.ownedArt} />
+                  {item.slot === "Frame" ? <AvatarFrame frame={getFrameStyle(item.name)} size={40}><SampleAvatar size={40} /></AvatarFrame> : <BrandAsset name={item.asset} style={styles.ownedArt} />}
                   <Text style={[s.body, s.flex]}>{item.name}</Text>
                   <Button secondary label={state.equipped[item.slot] === item.name ? "Equipped" : "Equip"} disabled={state.equipped[item.slot] === item.name} onPress={() => dispatch({ type: "equip", id: item.id })} />
                 </View>
@@ -214,6 +225,20 @@ function RecentChallengeRow({ challenge, onPress }: { challenge: Challenge; onPr
   );
 }
 
+function PointChange({ label, value }: { label: string; value: number }) {
+  return <View style={styles.pointChange}><Text style={styles.pointChangeLabel}>{label}</Text><Text style={[styles.pointChangeValue, value < 0 && { color: c.red }]}>{value > 0 ? "+" : ""}{value} PT</Text></View>;
+}
+function transactionLabel(reason: string) {
+  switch (reason) {
+    case "challenge_success": return "Challenge complete";
+    case "challenge_failure": return "Challenge missed";
+    case "prediction_stake": return "Prediction stake";
+    case "prediction_win": return "Prediction won";
+    case "prediction_refund": return "Prediction refunded";
+    default: return "Shop item";
+  }
+}
+
 function StatTile({ asset, value, label, color }: { asset: BrandAssetName; value: string; label: string; color: string }) {
   return (
     <View style={[styles.statTile, { backgroundColor: color }]}>
@@ -235,8 +260,6 @@ const styles = StyleSheet.create({
   avatarRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: -44, marginBottom: 6 },
   avatarWrap: { width: 110, height: 110 },
   avatarCircle: { position: "absolute", top: 17, left: 17, width: 76, height: 76, borderRadius: 40, backgroundColor: c.sky, overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  avatarMascot: { width: 82, height: 79 },
-  avatarFrame: { position: "absolute", width: 110, height: 110, top: 4, left: 0 },
   levelChip: { position: "absolute", top: 4, right: -1, paddingHorizontal: 7, paddingVertical: 5, borderRadius: 11, backgroundColor: c.yellow, transform: [{ rotate: "6deg" }] },
   levelText: { color: c.text, fontSize: 8, fontWeight: "900" },
   friendsButton: { marginBottom: 7, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 18, backgroundColor: c.lavender },
@@ -253,6 +276,15 @@ const styles = StyleSheet.create({
   badgeCountValue: { color: c.text, fontSize: 15, fontWeight: "900" },
   badgeCountLabel: { color: c.muted, fontSize: 7, fontWeight: "900" },
   statsRow: { flexDirection: "row", gap: 8 },
+  pointsSummary: { padding: 13, borderRadius: 18, backgroundColor: c.card, borderWidth: 1, borderColor: c.border, gap: 9 },
+  pointsSummaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  pointsSummaryValue: { marginTop: 2, color: c.text, fontSize: 20, fontWeight: "900" },
+  pointsSummaryStats: { flexDirection: "row", gap: 7 },
+  pointChange: { flex: 1, minWidth: 0, padding: 8, borderRadius: 12, backgroundColor: c.cream },
+  pointChangeLabel: { color: c.muted, fontSize: 8, fontWeight: "800" },
+  pointChangeValue: { color: c.primaryDark, fontSize: 10, fontWeight: "900", marginTop: 3 },
+  transactionRow: { flexDirection: "row", gap: 8, borderTopWidth: 1, borderTopColor: c.border, paddingTop: 7 },
+  transactionAmount: { color: c.primaryDark, fontSize: 10, fontWeight: "900" },
   statTile: { flex: 1, minHeight: 78, paddingVertical: 7, paddingHorizontal: 2, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   statIcon: { width: 29, height: 29 },
   statValue: { marginTop: -2, color: c.text, fontSize: 13, fontWeight: "900" },
@@ -280,8 +312,6 @@ const styles = StyleSheet.create({
   styleIcon: { width: 37, height: 39 },
   styleSlot: { color: c.muted, width: 75, fontSize: 10, fontWeight: "700" },
   styleValue: { flex: 1, color: c.text, textAlign: "right", fontSize: 10, fontWeight: "800" },
-  framePreview: { position: "relative", width: 39, height: 39, overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  framePreviewImage: { position: "absolute", width: 78, height: 78, top: -19.5, left: -19.5 },
   ownedItems: { gap: 8 },
   ownedRow: { minHeight: 54, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 16, backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
   ownedArt: { width: 42, height: 42 },

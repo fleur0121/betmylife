@@ -29,6 +29,7 @@ export default function Shop() {
     (item) =>
       filter === 'All' ||
       (filter === 'Frames' && item.slot === 'Frame') ||
+      (filter === 'Backgrounds' && item.slot === 'Background') ||
       (filter === 'Titles' && item.slot === 'Title') ||
       (filter === 'Stickers' && item.name.endsWith('Sticker')),
   );
@@ -40,14 +41,14 @@ export default function Shop() {
       />
       <Card style={{ backgroundColor: c.primary, borderColor: c.primary }}>
         <Text style={{ color: '#E6DAFF', fontSize: 12 }}>
-          YOUR POINTS WALLET
+          YOUR POINT BALANCE
         </Text>
         <View style={s.between}>
           <Text
             accessibilityLiveRegion="polite"
             style={{ color: c.card, fontSize: 36, fontWeight: '800' }}
           >
-            ✦ {state.wallet.toLocaleString()}{' '}
+            ✦ {state.pointsBalance.toLocaleString()}{' '}
             <Text style={{ fontSize: 17 }}>PT</Text>
           </Text>
           <BrandAsset name="iconShop" style={{ width: 54, height: 54 }} />
@@ -57,7 +58,7 @@ export default function Shop() {
         </Text>
       </Card>
       <Segments
-        options={['All', 'Frames', 'Titles', 'Stickers']}
+        options={['All', 'Frames', 'Backgrounds', 'Titles', 'Stickers']}
         value={filter}
         onChange={setFilter}
       />
@@ -77,12 +78,17 @@ export default function Shop() {
             key={reward.id}
             reward={reward}
             owned={state.owned.includes(reward.id)}
-            affordable={state.wallet >= reward.price}
+            equipped={state.equipped[reward.slot] === reward.name}
+            affordable={state.pointsBalance >= reward.price}
             onBuy={() => {
               dispatch({ type: 'buy', id: reward.id });
               setMessage(
-                `${reward.name} is yours! Equip it from your profile.`,
+                `${reward.name} is yours! Equip it here or from your profile.`,
               );
+            }}
+            onEquip={() => {
+              dispatch({ type: 'equip', id: reward.id });
+              setMessage(`${reward.name} equipped! Your profile is updated.`);
             }}
           />
         ))}

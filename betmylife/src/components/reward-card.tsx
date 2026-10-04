@@ -9,21 +9,28 @@ import { Button, s } from './ui-kit';
 import type { Reward } from '@/mock/data';
 import { palette as c } from '@/constants/design';
 import { BrandAsset } from '@/components/brand-asset';
+import { AvatarFrame, getFrameStyle, SampleAvatar } from '@/components/profile/avatar-frame';
 export function RewardCard({
   reward,
   owned,
+  equipped,
   affordable,
   onBuy,
+  onEquip,
 }: {
   reward: Reward;
   owned: boolean;
+  equipped: boolean;
   affordable: boolean;
   onBuy: () => void;
+  onEquip: () => void;
 }) {
   return (
     <View style={styles.card}>
       <View style={[styles.preview, { backgroundColor: reward.color }]}>
-        <BrandAsset name={reward.asset} style={styles.previewArt} label={reward.name} />
+        {reward.slot === 'Frame' ? (
+          <AvatarFrame frame={getFrameStyle(reward.name)} asset={reward.asset} size={76}><SampleAvatar size={76} /></AvatarFrame>
+        ) : <BrandAsset name={reward.asset} style={styles.previewArt} label={reward.name} />}
         <Text style={styles.previewLabel}>{reward.slot.toUpperCase()}</Text>
       </View>
       <View style={styles.details}>
@@ -34,10 +41,10 @@ export function RewardCard({
           ✦ {reward.price.toLocaleString()} PT
         </Text>
         <Button
-          label={owned ? '✓ Owned' : affordable ? 'Buy' : 'Need more PT'}
+          label={equipped ? '✓ Equipped' : owned ? 'Equip' : affordable ? 'Buy' : 'Need more PT'}
           secondary={owned}
-          disabled={owned || !affordable}
-          onPress={onBuy}
+          disabled={equipped || (!owned && !affordable)}
+          onPress={owned ? onEquip : onBuy}
         />
       </View>
     </View>

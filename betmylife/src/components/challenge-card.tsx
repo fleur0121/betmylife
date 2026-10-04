@@ -16,10 +16,12 @@ import { Text } from "./localized-text";
 import { Avatar, Pill, ProgressBar, s } from "./ui-kit";
 import { BrandAsset } from "./brand-asset";
 import { PredictionPanel } from "./prediction-panel";
+import { getChallengePointPreview } from "@/utils/points";
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   const { state, dispatch } = useAppState();
   const { locale, t } = useLanguage();
   const selected = state.predictions[challenge.id];
+  const pointPreview = getChallengePointPreview(challenge);
   const author = friendDirectory.find(
     (friend) => friend.name === challenge.user,
   );
@@ -88,6 +90,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       <Text translate={false} style={styles.title}>
         {getChallengeTitle(challenge, locale)}
       </Text>
+      <Text style={styles.atStake}>AT STAKE  <Text style={{ color: c.primary }}>+{pointPreview.success}</Text><Text> / </Text><Text style={{ color: c.red }}>{pointPreview.failed} PT</Text></Text>
       {getJapaneseTitle(challenge) &&
         getJapaneseTitle(challenge) !== challenge.title && (
           <Text translate={false} style={styles.translation}>
@@ -112,6 +115,11 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         <Text style={s.caption}>Stake points</Text>
       </View>
       <PredictionPanel challenge={challenge} />
+      {challenge.user === "Fuka" && (
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/challenge-proof", params: { id: challenge.id } })} style={({ pressed }) => [styles.proofAction, pressed && s.pressed]}>
+          <Text style={styles.proofActionText}>{challenge.pointsSettled ? (challenge.result === "success" ? "YOU DID IT ✦" : "NOT THIS TIME · RESULT") : "DO THE CHALLENGE · SUBMIT PROOF →"}</Text>
+        </Pressable>
+      )}
       <View style={styles.footer}>
         <Text style={s.caption}>
           👥 {challenge.friends + (selected ? 1 : 0)} friend predictions
@@ -201,4 +209,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
   deleteText: { color: c.red, fontSize: 12, fontWeight: "700" },
+  proofAction: { alignSelf: "flex-start", paddingHorizontal: 11, paddingVertical: 8, borderRadius: 13, backgroundColor: c.lavenderLight },
+  proofActionText: { color: c.primaryDark, fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
+  atStake: { color: c.muted, fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
 });

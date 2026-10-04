@@ -84,7 +84,7 @@ export default function UserProfile() {
       </View>
       <Card>
         <View style={s.row}>
-          <StatCard value={`${stats.points}`} label="Points" />
+          <StatCard value={`${isCurrentUser ? state.pointsBalance : stats.points} PT`} label="Points" />
           <StatCard value={`${stats.accuracy}%`} label="Accuracy" />
           <StatCard value={`${stats.streak} days`} label="Streak" />
         </View>

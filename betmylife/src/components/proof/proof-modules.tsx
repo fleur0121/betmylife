@@ -13,6 +13,17 @@ export type ProofModuleResult = {
   explanation?: string;
 };
 
+export function SelfReportProof({ onComplete }: { onComplete: (result: ProofModuleResult) => void }) {
+  return (
+    <Card>
+      <Text style={s.sectionTitle}>HONEST CHECK-IN ✦</Text>
+      <Text style={s.muted}>How did this promise go?</Text>
+      <Button label="I completed it ✓" onPress={() => onComplete({ passed: true, source: 'user', explanation: 'You reported completing the challenge.' })} />
+      <Button secondary label="I missed this one" onPress={() => onComplete({ passed: false, source: 'user', explanation: 'You reported that this challenge was missed.' })} />
+    </Card>
+  );
+}
+
 export function LiveCameraProof({ onComplete }: { onComplete: (result: ProofModuleResult) => void }) {
   const [uri, setUri] = useState<string | null>(null);
   async function capture() {

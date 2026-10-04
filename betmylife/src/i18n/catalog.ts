@@ -152,8 +152,8 @@ export const japanese: Record<string, string> = {
     "小さな努力が順位につながる。次のチャレンジへ進もう。",
   "Your circle": "あなたの仲間",
   "THIS WEEK · DEMO": "今週 · デモ",
-  "Weekly points celebrate progress. Shop points are yours to spend.":
-    "週間ポイントは成果の記録。ショップの残高とは別です。",
+  "One shared PT balance powers predictions, challenge results and Shop rewards.":
+    "共通のポイント残高を予想・チャレンジ結果・ショップで使います。",
   "YOUR LITTLE CORNER": "あなたのスペース",
   "Main character energy.": "自分らしさを、もっと。",
   "Making little promises. Keeping big dreams.":
@@ -184,7 +184,7 @@ export const japanese: Record<string, string> = {
   "The good stuff.": "がんばった自分にご褒美。",
   "Turn your everyday wins into a little self-expression.":
     "日々の達成を、自分らしいスタイルに。",
-  "YOUR POINTS WALLET": "使えるポイント",
+  "YOUR POINT BALANCE": "ポイント残高",
   "Earn by showing up. Spend on standing out.":
     "挑戦で貯めて、自分らしさに使おう。",
   "All rewards": "すべて",
