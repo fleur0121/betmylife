@@ -12,8 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandAsset } from "@/components/brand-asset";
 import { Text } from "@/components/localized-text";
 import { palette as c } from "@/constants/design";
-import { currentUser, type Challenge, type PredictionChoice } from "@/mock/data";
-import { myFriendId } from "@/mock/friends";
+import type { Challenge, PredictionChoice } from "@/mock/data";
 import { useAppState } from "@/state/app-state";
 import {
   calculatePotentialProfit,
@@ -38,9 +37,9 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
   const [choice, setChoice] = useState<PredictionChoice | null>(null);
   const [stake, setStake] = useState<number>(PREDICTION_STAKE_PRESETS[0]);
   const [visible, setVisible] = useState(false);
-  const ownChallenge = challenge.user === currentUser.name;
+  const ownChallenge = challenge.ownerId === state.authUserId;
   const relatedPredictions = Object.values(state.stakedPredictions).filter(
-    (prediction) => prediction.challengeId === challenge.id && prediction.userId === myFriendId,
+    (prediction) => prediction.challengeId === challenge.id && prediction.userId === state.authUserId,
   );
   const currentPrediction = relatedPredictions.find((prediction) => prediction.status === "active");
   const editing = currentPrediction !== undefined;
@@ -75,10 +74,11 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
 
   function confirmPrediction(predictionId: string) {
     if (!choice || !stakeValidation.valid || expired || windowClosed || ownChallenge || locked) return;
+    if (!state.authUserId) return;
     const prediction = createStakedPrediction({
       id: predictionId,
       challenge,
-      userId: myFriendId,
+      userId: state.authUserId,
       choice,
       stake,
       createdAt: currentPrediction?.createdAt,

@@ -14,6 +14,7 @@ import {
     s,
 } from "@/components/ui-kit";
 import { palette as c } from "@/constants/design";
+import { API_URL } from "@/constants/api";
 import { useLanguage } from "@/i18n/language";
 import type { Category, Visibility } from "@/mock/data";
 import { saveChallenge } from "@/services/challenge-service";
@@ -25,7 +26,7 @@ import {
 import { useAppState } from "@/state/app-state";
 import { parseChallengeDeadline } from "@/utils/predictions";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     KeyboardAvoidingView,
     Platform,
@@ -37,6 +38,7 @@ import {
 export default function Create() {
   const { t } = useLanguage();
   const { state, dispatch } = useAppState();
+  const [authorName, setAuthorName] = useState("Loading…");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("Study");
   const [difficulty, setDifficulty] = useState(3);
@@ -54,6 +56,28 @@ export default function Create() {
   const currentTitle = useRef(title);
   const analysisInFlight = useRef(false);
   const confidenceTrackWidth = useRef(1);
+
+  useEffect(() => {
+    if (!state.authUserId) return;
+    let cancelled = false;
+    fetch(`${API_URL}/users/${state.authUserId}/profile`)
+      .then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.detail ?? "Could not load profile.");
+        return body as { nickname?: string | null; display_name: string; username: string };
+      })
+      .then((profile) => {
+        if (!cancelled) {
+          setAuthorName(profile.nickname?.trim() || profile.display_name || profile.username);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAuthorName("Your profile");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.authUserId]);
 
   function updateConfidence(locationX: number) {
     if (!Number.isFinite(locationX)) return;
@@ -149,6 +173,7 @@ export default function Create() {
       type: "create",
       challenge: {
         id: savedChallenge.id,
+        ownerId: state.authUserId,
         user: savedChallenge.user_name,
         avatar: "🌷",
         color: c.lavender,
@@ -223,7 +248,7 @@ export default function Create() {
                 </View>
                 <View>
                   <Text translate={false} style={s.bold}>
-                    Fuka
+                    {authorName}
                   </Text>
                   <Text style={s.caption}>Visible to your friends</Text>
                 </View>

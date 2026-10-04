@@ -18,19 +18,32 @@ import {
 import { palette as c } from "@/constants/design";
 import { AVATAR_FRAME_ART_SCALE } from "@/components/profile/avatar-frame";
 import { users } from "@/mock/data";
-import { useState } from "react";
+import { API_URL } from "@/constants/api";
+import { useAppState } from "@/state/app-state";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 const metrics = ["Weekly", "Prediction", "Streak"] as const;
 type Metric = (typeof metrics)[number];
 export default function Leaderboard() {
+  const { state } = useAppState();
   const [metric, setMetric] = useState<Metric>("Weekly");
+  const [currentUserName, setCurrentUserName] = useState("You");
+  useEffect(() => {
+    if (!state.authUserId) return;
+    fetch(`${API_URL}/users/${state.authUserId}/profile`)
+      .then((response) => response.json())
+      .then((profile: { nickname?: string | null; display_name?: string; username?: string }) => {
+        setCurrentUserName(profile.nickname?.trim() || profile.display_name || profile.username || "You");
+      })
+      .catch(() => setCurrentUserName("You"));
+  }, [state.authUserId]);
   const key =
     metric === "Weekly"
       ? "points"
       : metric === "Prediction"
         ? "accuracy"
         : "streak";
-  const ranked = [...users].sort((a, b) => b[key] - a[key]);
+  const ranked = users.map((user) => user.name === "Fuka" ? { ...user, name: currentUserName } : user).sort((a, b) => b[key] - a[key]);
   const score = (user: (typeof users)[number]) =>
     `${user[key].toLocaleString()}${key === "accuracy" ? "%" : key === "streak" ? " days" : " PT"}`;
   return (
@@ -117,7 +130,7 @@ export default function Leaderboard() {
       </View>
       <Card style={{ backgroundColor: c.lavenderLight }}>
         <Text style={s.bold}>
-          ✦ You’re #{ranked.findIndex((user) => user.name === "Fuka") + 1} this
+          ✦ You’re #{ranked.findIndex((user) => user.name === currentUserName) + 1} this
           week
         </Text>
         <Text style={s.muted}>
@@ -132,6 +145,7 @@ export default function Leaderboard() {
             user={user}
             rank={index + 1}
             score={score(user)}
+            currentUserName={currentUserName}
           />
         ))}
       </View>

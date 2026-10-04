@@ -151,6 +151,21 @@ export default function Home() {
   const featured =
     state.challenges.find((item) => item.id === "read-today") ??
     demoChallenges.find((item) => item.id === "read-today");
+  const myChallenges = state.challenges.filter(
+    (item) => item.ownerId === state.authUserId,
+  );
+  const myPicks = Object.values(state.stakedPredictions)
+    .filter((prediction) => prediction.userId === state.authUserId && prediction.status === "active")
+    .map((prediction) => {
+      const challenge = state.challenges.find((item) => item.id === prediction.challengeId);
+      if (!challenge) return null;
+      return {
+        challenge,
+        choice: prediction.choice,
+        odds: prediction.choice === "yes" ? challenge.yesOdds : challenge.noOdds,
+      };
+    })
+    .filter((pick): pick is { challenge: Challenge; choice: "yes" | "no"; odds: string } => pick !== null);
   const friendNames = friendDirectory
     .filter((friend) => state.friendIds.includes(friend.id))
     .map((friend) => friend.name);
@@ -377,11 +392,41 @@ export default function Home() {
                   </View>
                 </View>
               </Modal>
-              {featured ? (
+              {featured && (
                 <View style={styles.featureWrap}>
                   <FeaturedChallengeCard challenge={featured} />
                 </View>
-              ) : (
+              )}
+              {myChallenges.length > 0 && (
+                <View style={styles.myChallengesBlock}>
+                  <View style={styles.myChallengesHeading}>
+                    <Text style={styles.feedEyebrow}>YOUR CHALLENGES</Text>
+                    <Text style={styles.myChallengesHint}>Swipe to view</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.myChallengesRow}
+                  >
+                    {myChallenges.map((challenge) => (
+                      <View key={challenge.id} style={styles.myChallengeSlide}>
+                        <View style={styles.myChallengeTopline}>
+                          <Text style={styles.myChallengeCategory}>{challenge.category}</Text>
+                          <Text style={styles.myChallengeDeadline}>◷ {challenge.deadline}</Text>
+                        </View>
+                        <Text numberOfLines={2} style={styles.myChallengeTitle}>
+                          {challenge.title}
+                        </Text>
+                        <Text style={styles.myChallengeConfidence}>
+                          Confidence {challenge.confidence}%
+                        </Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+              {!featured && myChallenges.length === 0 && (
                 <View style={styles.emptyHero}>
                   <BrandAsset
                     name="stateNoChallenges"
@@ -392,6 +437,36 @@ export default function Home() {
                   <Text style={s.muted}>
                     Start with one small promise today.
                   </Text>
+                </View>
+              )}
+              {myPicks.length > 0 && (
+                <View style={styles.myChallengesBlock}>
+                  <View style={styles.myChallengesHeading}>
+                    <Text style={styles.feedEyebrow}>YOUR PICKS</Text>
+                    <Text style={styles.myChallengesHint}>Swipe to view</Text>
+                  </View>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.myChallengesRow}
+                  >
+                    {myPicks.map(({ challenge, choice, odds }) => (
+                      <View key={challenge.id} style={styles.myPickSlide}>
+                        <View style={styles.myChallengeTopline}>
+                          <Text style={styles.myChallengeCategory}>BET PLACED</Text>
+                          <Text style={styles.myPickChoice}>{choice.toUpperCase()}</Text>
+                        </View>
+                        <Text numberOfLines={2} style={styles.myChallengeTitle}>
+                          {challenge.title}
+                        </Text>
+                        <View style={styles.myPickBottomline}>
+                          <Text style={styles.myChallengeDeadline}>Current odds</Text>
+                          <Text style={styles.myPickOdds}>×{odds}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
                 </View>
               )}
               <View style={styles.statsRow}>
@@ -669,6 +744,49 @@ const styles = StyleSheet.create({
   },
   closeCalendarText: { color: c.primaryDark, fontSize: 13, fontWeight: "800" },
   featureWrap: { paddingHorizontal: 14 },
+  myChallengesBlock: {
+    marginHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 26,
+    backgroundColor: c.card,
+  },
+  myChallengesHeading: {
+    paddingHorizontal: 16,
+    paddingBottom: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  myChallengesHint: { color: c.muted, fontSize: 10, fontWeight: "700" },
+  myChallengesRow: { paddingHorizontal: 12, gap: 10 },
+  myChallengeSlide: {
+    width: 300,
+    minHeight: 142,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: c.lavenderLight,
+    justifyContent: "space-between",
+  },
+  myChallengeTopline: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  myChallengeCategory: { color: c.primaryDark, fontSize: 11, fontWeight: "900" },
+  myChallengeDeadline: { color: c.muted, fontSize: 10, fontWeight: "700" },
+  myChallengeTitle: { color: c.text, fontSize: 20, lineHeight: 27, fontWeight: "900" },
+  myChallengeConfidence: { color: c.primaryDark, fontSize: 11, fontWeight: "800" },
+  myPickSlide: {
+    width: 300,
+    minHeight: 142,
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: c.cream,
+    justifyContent: "space-between",
+  },
+  myPickChoice: { color: c.green, fontSize: 11, fontWeight: "900" },
+  myPickBottomline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  myPickOdds: { color: c.primaryDark, fontSize: 22, fontWeight: "900" },
   emptyHero: {
     marginHorizontal: 14,
     minHeight: 270,
