@@ -126,7 +126,7 @@ export function PredictionPanel({ challenge, variant = "feed" }: PredictionPanel
             <Text style={styles.lockedChoice}>{settledPrediction.choice.toUpperCase()}</Text>
             <Text style={styles.lockedMeta}>{settledPrediction.stake} PT · ×{settledPrediction.lockedOdds.toFixed(2)}</Text>
           </View>
-          <BrandAsset name={settledPrediction.status === "won" ? "statePointsEarned" : "mascotSupportive"} style={styles.lockedMascot} />
+          <BrandAsset name={settledPrediction.status === "won" ? "stickerYouCalledIt" : "mascotSupportive"} style={styles.lockedMascot} />
         </View>
         <View style={styles.lockedReturn}>
           <Text style={styles.lockedReturnLabel}>{settledPrediction.status === "won" ? "RETURN" : "LOSS"}</Text>

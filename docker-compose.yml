@@ -1,7 +1,8 @@
 services:
   api:
     build:
-      context: ./betmylife/backend
+      context: ./betmylife
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     env_file:
       - ./betmylife/backend/.env

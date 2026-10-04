@@ -20,7 +20,7 @@ import { useAppState } from "@/state/app-state";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 const futureSelves: { asset: BrandAssetName; label: string; color: string }[] =
   [
@@ -39,9 +39,13 @@ const profileFrames: Record<string, BrandAssetName> = {
 
 const badges: { asset: BrandAssetName; label: string }[] = [
   { asset: "badgeFirstChallenge", label: "FIRST CHALLENGE" },
+  { asset: "badgeThreeDayStreak", label: "3 DAY STREAK" },
   { asset: "badgeSevenDayStreak", label: "7 DAY STREAK" },
   { asset: "badgeKnowledgeBuilder", label: "KNOWLEDGE BUILDER" },
   { asset: "badgeFitnessHero", label: "FITNESS HERO" },
+  { asset: "badgeEarlyBird", label: "EARLY BIRD" },
+  { asset: "badgeAiSlayer", label: "AI SLAYER" },
+  { asset: "badgeConsistency", label: "CONSISTENCY" },
 ];
 
 export default function Profile() {
@@ -119,7 +123,7 @@ export default function Profile() {
               <Text style={styles.titleValue}>{state.equipped.Title}</Text>
             </View>
             <View style={styles.badgeCount}>
-              <Text style={styles.badgeCountValue}>12</Text>
+              <Text style={styles.badgeCountValue}>{badges.length}</Text>
               <Text style={styles.badgeCountLabel}>BADGES</Text>
             </View>
           </View>
@@ -300,7 +304,11 @@ export default function Profile() {
               <Text style={styles.sectionLink}>SEE ALL →</Text>
             </Pressable>
           </View>
-          <View style={styles.badgeRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.badgeRow}
+          >
             {badges.map((badge) => (
               <View key={badge.label} style={styles.badgeItem}>
                 <BrandAsset
@@ -308,9 +316,10 @@ export default function Profile() {
                   style={styles.badgeArt}
                   label={badge.label}
                 />
+                <Text style={styles.badgeLabel}>{badge.label}</Text>
               </View>
             ))}
-          </View>
+          </ScrollView>
 
           <Pressable
             accessibilityRole="button"
@@ -705,11 +714,12 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 4,
+    gap: 10,
+    paddingVertical: 4,
   },
-  badgeItem: { flex: 1, alignItems: "center" },
-  badgeArt: { width: "100%", height: 78 },
+  badgeItem: { width: 72, alignItems: "center" },
+  badgeArt: { width: 68, height: 68 },
+  badgeLabel: { color: c.muted, fontSize: 7, fontWeight: "900", textAlign: "center" },
   collectionLink: {
     flexDirection: "row",
     alignItems: "center",

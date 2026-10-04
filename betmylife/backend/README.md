@@ -1,5 +1,9 @@
 # Backend
 
+Challenge NLP uses the backend-only Gemini key. See
+[the shared extraction contract](../shared/CHALLENGE_NLP.md) for the Analyze API,
+schemas, fixed dictionary, examples, local setup and offline/live evaluation.
+
 Docker is configured to use TiDB Cloud as the only database. No local MySQL
 container is started.
 

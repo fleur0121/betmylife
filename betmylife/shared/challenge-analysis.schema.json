@@ -1,0 +1,628 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Action"
+        },
+        "object": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Object"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "enum": [
+                "sleep",
+                "exercise",
+                "learning",
+                "reading",
+                "household",
+                "daily_routine",
+                "creative",
+                "social",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Category"
+        },
+        "subcategory": {
+          "anyOf": [
+            {
+              "enum": [
+                "bedtime",
+                "sleep_onset",
+                "wake_up",
+                "get_out_of_bed",
+                "duration",
+                "regularity",
+                "nap",
+                "pre_sleep_routine",
+                "walking",
+                "running",
+                "strength_training",
+                "stretching",
+                "language_learning",
+                "exam_preparation",
+                "programming",
+                "book",
+                "article",
+                "cleaning",
+                "laundry",
+                "cooking",
+                "organizing",
+                "journaling",
+                "writing",
+                "drawing",
+                "music_practice",
+                "contact",
+                "conversation",
+                "meeting",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Subcategory"
+        },
+        "measurements": {
+          "items": {
+            "$ref": "#/$defs/Measurement"
+          },
+          "title": "Measurements",
+          "type": "array"
+        },
+        "completion_condition": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Completion Condition"
+        },
+        "times": {
+          "items": {
+            "$ref": "#/$defs/Temporal"
+          },
+          "title": "Times",
+          "type": "array"
+        },
+        "frequency": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Frequency"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "challenge_period": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Period"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conditions": {
+          "$ref": "#/$defs/Conditions"
+        },
+        "clarification_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarification Questions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "original",
+        "action",
+        "object",
+        "category",
+        "subcategory",
+        "measurements",
+        "completion_condition",
+        "times",
+        "frequency",
+        "challenge_period",
+        "conditions",
+        "clarification_questions"
+      ],
+      "title": "Action",
+      "type": "object"
+    },
+    "AnalysisData": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/Action"
+          },
+          "title": "Actions",
+          "type": "array"
+        },
+        "user_reported": {
+          "$ref": "#/$defs/Reported"
+        },
+        "clarification_questions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Clarification Questions",
+          "type": "array"
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_text": {
+          "title": "Source Text",
+          "type": "string"
+        },
+        "context": {
+          "$ref": "#/$defs/Context"
+        }
+      },
+      "required": [
+        "actions",
+        "user_reported",
+        "clarification_questions",
+        "schema_version",
+        "source_text",
+        "context"
+      ],
+      "title": "AnalysisData",
+      "type": "object"
+    },
+    "Conditions": {
+      "additionalProperties": false,
+      "properties": {
+        "indoor_outdoor": {
+          "anyOf": [
+            {
+              "enum": [
+                "indoor",
+                "outdoor"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Indoor Outdoor"
+        },
+        "weather_requirement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Weather Requirement"
+        }
+      },
+      "required": [
+        "indoor_outdoor",
+        "weather_requirement"
+      ],
+      "title": "Conditions",
+      "type": "object"
+    },
+    "Context": {
+      "additionalProperties": false,
+      "properties": {
+        "submitted_at": {
+          "title": "Submitted At",
+          "type": "string"
+        },
+        "timezone": {
+          "title": "Timezone",
+          "type": "string"
+        }
+      },
+      "required": [
+        "submitted_at",
+        "timezone"
+      ],
+      "title": "Context",
+      "type": "object"
+    },
+    "Frequency": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Count"
+        },
+        "per": {
+          "anyOf": [
+            {
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Per"
+        }
+      },
+      "required": [
+        "original",
+        "count",
+        "per"
+      ],
+      "title": "Frequency",
+      "type": "object"
+    },
+    "Measurement": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "metric": {
+          "enum": [
+            "distance",
+            "activity_duration",
+            "sleep_duration",
+            "time_in_bed",
+            "count",
+            "regularity_tolerance"
+          ],
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "enum": [
+                "eq",
+                "gte",
+                "lte",
+                "gt",
+                "lt"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operator"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "original",
+        "metric",
+        "operator",
+        "value",
+        "unit"
+      ],
+      "title": "Measurement",
+      "type": "object"
+    },
+    "Period": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "enum": [
+                "day",
+                "week",
+                "month"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "original",
+        "value",
+        "unit"
+      ],
+      "title": "Period",
+      "type": "object"
+    },
+    "Reported": {
+      "additionalProperties": false,
+      "properties": {
+        "difficulty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Difficulty"
+        },
+        "confidence_percent": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Confidence Percent"
+        },
+        "confidence_original": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Confidence Original"
+        }
+      },
+      "required": [
+        "difficulty",
+        "confidence_percent",
+        "confidence_original"
+      ],
+      "title": "Reported",
+      "type": "object"
+    },
+    "Temporal": {
+      "additionalProperties": false,
+      "properties": {
+        "original": {
+          "title": "Original",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "event",
+            "deadline",
+            "interval_start",
+            "interval_end",
+            "period_start",
+            "period_end"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "enum": [
+                "eq",
+                "gte",
+                "lte",
+                "gt",
+                "lt"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operator"
+        },
+        "date_text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Date Text"
+        },
+        "clock_time": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Clock Time"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Date"
+        },
+        "weekday": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Weekday"
+        },
+        "timezone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Timezone"
+        },
+        "day_offset": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Day Offset"
+        },
+        "resolved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Resolved At"
+        }
+      },
+      "required": [
+        "original",
+        "kind",
+        "operator",
+        "date_text",
+        "clock_time",
+        "date",
+        "weekday",
+        "timezone",
+        "day_offset",
+        "resolved_at"
+      ],
+      "title": "Temporal",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "$ref": "#/$defs/AnalysisData"
+    },
+    "usage": {
+      "additionalProperties": true,
+      "title": "Usage",
+      "type": "object"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "cached": {
+      "title": "Cached",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "data",
+    "usage",
+    "model",
+    "cached"
+  ],
+  "title": "AnalyzeResponse",
+  "type": "object"
+}

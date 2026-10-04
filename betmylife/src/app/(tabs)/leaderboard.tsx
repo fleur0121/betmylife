@@ -37,6 +37,7 @@ export default function Leaderboard() {
       <PageHeading
         title="Your circle, your climb"
         subtitle="Compare points, prediction accuracy, and streaks."
+        right={<BrandAsset name="iconLeaderboard" style={styles.headingArt} label="Leaderboard" />}
       />
       <Segments options={metrics} value={metric} onChange={setMetric} />
       <View style={styles.podium}>
@@ -136,6 +137,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 12,
   },
+  headingArt: { width: 54, height: 54 },
   podiumUser: { flex: 1, alignItems: "center", gap: 10, marginTop: 30 },
   crown: { width: 53, height: 46, marginBottom: -4 },
   avatarStage: {

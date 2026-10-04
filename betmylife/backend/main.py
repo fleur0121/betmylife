@@ -1,4 +1,5 @@
 import os
+import json
 import hashlib
 import hmac
 import json
@@ -11,6 +12,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from google import genai
+try:
+    from .challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
+except ImportError:
+    from challenge_nlp import AnalyzeRequest, AnalyzeResponse, analyze
 try:
     from .db import get_connection, init_db
 except ImportError:  # Supports `uvicorn main:app` from the backend directory.
@@ -161,6 +166,23 @@ def gemini_client() -> genai.Client:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get('/challenge-analyze/schema')
+def challenge_schema():
+    return AnalyzeResponse.model_json_schema()
+
+
+@app.post('/challenge-analyze', response_model=AnalyzeResponse)
+def challenge_analyze(request: AnalyzeRequest):
+    print('[challenge-nlp] requested ' + request.model_dump_json(), flush=True)
+    try:
+        result = analyze(request)
+    except HTTPException as error:
+        print('[challenge-nlp] failed ' + json.dumps(error.detail, ensure_ascii=False), flush=True)
+        raise
+    print('[challenge-nlp] analyzed ' + json.dumps(result, ensure_ascii=False, indent=2), flush=True)
+    return result
 
 
 @app.post("/db/init")

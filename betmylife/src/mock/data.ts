@@ -354,6 +354,14 @@ export const rewards: Reward[] = [
     slot: "Badge",
   },
   {
+    id: "chill-cap",
+    name: "Chill Cap Sticker",
+    price: 100,
+    asset: "rewardChillCap",
+    color: "#DDF2FF",
+    slot: "Badge",
+  },
+  {
     id: "study-star",
     name: "Study Star Sticker",
     price: 100,

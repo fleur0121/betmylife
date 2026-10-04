@@ -9,6 +9,7 @@ import { useAppState } from "@/state/app-state";
 import { getChallengePointChange } from "@/utils/points";
 import type { ChallengeOutcome } from "@/utils/predictions";
 import { palette as c } from "@/constants/design";
+import { BrandAsset } from "@/components/brand-asset";
 
 export default function ChallengeProofScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -45,7 +46,18 @@ export default function ChallengeProofScreen() {
       <PageHeading eyebrow="YOUR PROMISE · YOUR PROOF" title={settledOutcome ? (settledOutcome === "success" ? "YOU DID IT ✦" : "NOT THIS TIME") : challenge.title} subtitle={settledOutcome ? (settledOutcome === "success" ? "Challenge complete" : "Challenge missed · every try still counts") : challenge.proofPlan?.summary ?? "Submit your proof to record the challenge result."} />
       {settledOutcome ? (
         <Card style={styles.resultCard}>
-          <Text style={styles.resultEyebrow}>{settledOutcome === "success" ? "CHALLENGE COMPLETE" : "CHALLENGE MISSED"}</Text>
+          <View style={styles.resultHeading}>
+            <BrandAsset name={settledOutcome === "success" ? "iconSuccess" : "iconFailed"} style={styles.resultIcon} />
+            <Text style={styles.resultEyebrow}>{settledOutcome === "success" ? "CHALLENGE COMPLETE" : "CHALLENGE MISSED"}</Text>
+          </View>
+          <View style={styles.resultArt}>
+            <BrandAsset
+              name={settledOutcome === "success" ? "statePointsEarned" : "stateChallengeFailed"}
+              style={styles.resultMascot}
+              label={settledOutcome === "success" ? "Points earned" : "Challenge missed"}
+            />
+            {settledOutcome === "failed" && <BrandAsset name="stickerKeepGoing" style={styles.keepGoing} label="Keep going" />}
+          </View>
           <Text style={styles.difficulty}>DIFFICULTY  ·  {"★".repeat(Math.max(1, Math.min(5, challenge.difficulty || 3)))}{"☆".repeat(5 - Math.max(1, Math.min(5, challenge.difficulty || 3)))}</Text>
           <Text style={[styles.amount, { color: pointChange >= 0 ? c.primary : c.red }]}>{pointChange > 0 ? "+" : ""}{pointChange} PT</Text>
           <Text style={s.caption}>NEW BALANCE</Text>
@@ -75,6 +87,11 @@ export default function ChallengeProofScreen() {
 
 const styles = StyleSheet.create({
   resultCard: { alignItems: "center", gap: 8, paddingVertical: 24 },
+  resultHeading: { flexDirection: "row", alignItems: "center", gap: 6 },
+  resultIcon: { width: 24, height: 24 },
+  resultArt: { width: "100%", minHeight: 130, alignItems: "center", justifyContent: "center" },
+  resultMascot: { width: 150, height: 130 },
+  keepGoing: { position: "absolute", width: 76, height: 48, right: 0, bottom: 0 },
   resultEyebrow: { color: c.primaryDark, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   difficulty: { color: c.muted, fontSize: 10, fontWeight: "800", marginTop: 10 },
   amount: { fontSize: 40, fontWeight: "900", letterSpacing: -1 },
